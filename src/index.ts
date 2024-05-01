@@ -33,12 +33,13 @@ import starsRouter from './routers/stars.router';
 import commitsRouter from './routers/commits.router';
 import file_modifRouter from './routers/file_modif.router';
 
-import { Database } from './utils/database';
+//import { Database } from './utils/database';
+import { connectToDB, closeDB } from './utils/database';
 import cors from 'cors';
 
 dotenv.config();
 
-const database:Database = new Database(); 
+//const database:Database = new Database(); 
 const app: Express = express();
 const port = process.env.PORT;
 
@@ -84,7 +85,21 @@ app.get('/', (req: Request, res: Response) => {
   res.send('el backend del proyectoo, que onda');
 });
 
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`⚡️servidor levantado http://localhost:${port}`);
   console.log('que onda mi ing');
+  await connectToDB();
 });
+
+// Manejar cierre del servidor
+/*process.on('SIGINT', async () => {
+  await closeDB(); // Cerrar conexión con la base de datos Oracle
+  console.log('Servidor Express cerrado y conexión con la base de datos Oracle cerrada.');
+  process.exit();
+});*/
+
+/*app.listen(port, () => {
+  console.log(`⚡️servidor levantado http://localhost:${port}`);
+  console.log('que onda mi ing');
+});*/
+

@@ -10,86 +10,131 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eliminarUsuario = exports.actualizarUsuario = exports.agregarUsuario = exports.obtenerUsuarios = exports.obtenerUsuario = exports.login = void 0;
-const usuarios_schema_1 = require("../model/usuarios.schema");
-// (Controlador de usuarios) login
+const oracledb = require('oracledb');
+const database_1 = require("../utils/database");
 const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    // asd.456
-    const usuario = yield usuarios_schema_1.UsuariosSchema.findOne({ correo: req.body.correo, contrasena: req.body.contrasena }, { password: false });
-    if (usuario) {
-        res.send({ status: true, message: 'Login correcto', usuario });
+    const { CORREO, CONTRASENIA } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_USUARIOS 
+       WHERE CORREO = :CORREO AND CONTRASENIA = :CONTRASENIA`, { CORREO, CONTRASENIA });
+        if (result.rows.length > 0) {
+            // Usuario encontrado, credenciales válidas
+            res.send({ status: true, message: 'Login correcto', usuario: result.rows[0] });
+        }
+        else {
+            // Usuario no encontrado o credenciales inválidas
+            res.send({ status: false, message: 'Credenciales incorrectas' });
+        }
     }
-    else
-        res.send({ status: false, message: 'Login incorrecto' });
-    res.end();
+    catch (error) {
+        console.error('Error en la función de login:', error);
+        res.status(500).send({ message: 'Error en el servidor al intentar iniciar sesión' });
+    }
 });
 exports.login = login;
-const obtenerUsuario = (req, res) => {
-    /*res.send('obtener el usuario: ' + req.params.id);
-    res.end();*/
-    usuarios_schema_1.UsuariosSchema.findOne({ id_usuario: req.params.id_usuario }).then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
-};
+// Función para obtener un usuario por su ID
+const obtenerUsuario = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_usuario } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_USUARIOS WHERE id_usuario = :id_usuario`, [id_usuario]);
+        yield connection.close();
+        if (result.rows.length === 0) {
+            res.status(404).send({ message: 'Usuario no encontrado' });
+        }
+        else {
+            res.send(result.rows[0]);
+        }
+    }
+    catch (error) {
+        console.error('Error al obtener usuario:', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener usuario' });
+    }
+});
 exports.obtenerUsuario = obtenerUsuario;
+// Función para obtener todos los usuarios
 const obtenerUsuarios = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    /*res.send('obtener todos los usuarios');
-    res.end();*/
-    usuarios_schema_1.UsuariosSchema.find().then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_USUARIOS ORDER BY ID_USUARIO ASC`);
+        yield connection.close();
+        res.send(result.rows);
+    }
+    catch (error) {
+        console.error('Error al obtener usuarios:', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener usuarios' });
+    }
 });
 exports.obtenerUsuarios = obtenerUsuarios;
-const agregarUsuario = (req, res) => {
-    const p = new usuarios_schema_1.UsuariosSchema({
-        "id_usuario": req.body.id_usuario,
-        "nombre": req.body.nombre,
-        "apellido": req.body.apellido,
-        "imagen": req.body.imagen,
-        "correo": req.body.correo,
-        "contrasena": req.body.contrasena,
-        "status": req.body.status,
-        "ubicacion": req.body.ubicacion,
-        "biografia": req.body.biografia
-    });
-    p.save().then(saveResponse => {
-        res.send(saveResponse);
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al guardar el usuario', error });
-        res.end();
-    });
-};
+// Función para agregar un nuevo usuario
+const agregarUsuario = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { ID_USUARIO, NOMBRE, APELLIDO, CORREO, CONTRASENIA, FECHA_CREACION, UBICACION, BIOGRAFIA } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`INSERT INTO C##GITHUB.TBL_USUARIOS (ID_USUARIO, NOMBRE, APELLIDO, CORREO, CONTRASENIA, FECHA_CREACION, UBICACION, BIOGRAFIA)  
+       VALUES (:ID_USUARIO, :NOMBRE, :APELLIDO, :CORREO , :CONTRASENIA, TO_DATE(:FECHA_CREACION, 'DD-MON-RR'), :UBICACION, :BIOGRAFIA)`, [ID_USUARIO, NOMBRE, APELLIDO, CORREO, CONTRASENIA, FECHA_CREACION, UBICACION, BIOGRAFIA]);
+        yield connection.commit();
+        yield connection.close();
+        res.status(201).send({ message: 'Usuario agregado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al agregar usuario:', error);
+        res.status(500).send({ message: 'Error en el servidor al agregar usuario' });
+    }
+});
 exports.agregarUsuario = agregarUsuario;
-const actualizarUsuario = (req, res) => {
-    usuarios_schema_1.UsuariosSchema.updateOne({ id_usuario: req.params.id_usuario }, {
-        id_usuario: req.body.id_usuario,
-        nombre: req.body.nombre,
-        apellido: req.body.apellido,
-        imagen: req.body.imagen,
-        correo: req.body.correo,
-        contrasena: req.body.contrasena,
-        status: req.body.status,
-        ubicacion: req.body.ubicacion,
-        biografia: req.body.biografia
-    }).then(updateResponse => {
-        res.send({ message: 'Usuario actualizado', updateResponse });
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al actualizar el usuario', error });
-        res.end();
-    });
-    //res.end();
-};
+// Función para actualizar un usuario
+const actualizarUsuario = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_usuario } = req.params;
+    const { NOMBRE, APELLIDO, CORREO, CONTRASENIA, FECHA_CREACION, UBICACION, BIOGRAFIA } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`UPDATE C##GITHUB.TBL_USUARIOS 
+       SET 
+           NOMBRE = :NOMBRE, 
+           APELLIDO = :APELLIDO, 
+           CORREO = :CORREO, 
+           CONTRASENIA = :CONTRASENIA,
+           FECHA_CREACION = TO_DATE(:FECHA_CREACION, 'DD-MON-RR'),
+           UBICACION = :UBICACION,
+           BIOGRAFIA = :BIOGRAFIA 
+           WHERE ID_USUARIO = :id_usuario`, [NOMBRE, APELLIDO, CORREO, CONTRASENIA, FECHA_CREACION, UBICACION, BIOGRAFIA, id_usuario]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'Usuario actualizado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al actualizar usuario:', error);
+        res.status(500).send({ message: 'Error en el servidor al actualizar usuario' });
+    }
+});
 exports.actualizarUsuario = actualizarUsuario;
-const eliminarUsuario = (req, res) => {
-    usuarios_schema_1.UsuariosSchema.deleteOne({ id_usuario: req.params.id_usuario })
-        .then(removeResult => {
-        res.send({ message: 'Usuario eliminado', removeResult });
-        res.end();
-    });
-};
+// Función para eliminar un usuario
+const eliminarUsuario = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_usuario } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`DELETE FROM C##GITHUB.TBL_USUARIOS WHERE id_usuario = :id_usuario`, [id_usuario]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'Usuario eliminado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al eliminar usuario:', error);
+        res.status(500).send({ message: 'Error en el servidor al eliminar usuario' });
+    }
+});
 exports.eliminarUsuario = eliminarUsuario;

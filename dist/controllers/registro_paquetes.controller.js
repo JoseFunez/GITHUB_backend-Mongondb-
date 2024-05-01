@@ -10,61 +10,115 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eliminarRegistro_paquete = exports.actualizarRegistro_paquete = exports.agregarRegistro_paquete = exports.obtenerRegistro_paquetes = exports.obtenerRegistro_paquete = void 0;
-const registro_paquetes_schema_1 = require("../model/registro_paquetes.schema");
-const obtenerRegistro_paquete = (req, res) => {
-    registro_paquetes_schema_1.Registro_paqueteSchema.findOne({ id_registro: req.params.id_registro }).then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
-};
+const oracledb = require('oracledb');
+const database_1 = require("../utils/database");
+// Función para obtener un usuario por su ID
+const obtenerRegistro_paquete = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_registro } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_REGISTRO_PAQUETES WHERE id_registro = :id_registro`, [id_registro]);
+        yield connection.close();
+        if (result.rows.length === 0) {
+            res.status(404).send({ message: ' no encontrado' });
+        }
+        else {
+            res.send(result.rows[0]);
+        }
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor' });
+    }
+});
 exports.obtenerRegistro_paquete = obtenerRegistro_paquete;
+// Función para obtener todos los usuarios
 const obtenerRegistro_paquetes = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    registro_paquetes_schema_1.Registro_paqueteSchema.find().then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_REGISTRO_PAQUETES ORDER BY id_registro ASC`);
+        yield connection.close();
+        res.send(result.rows);
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener' });
+    }
 });
 exports.obtenerRegistro_paquetes = obtenerRegistro_paquetes;
-const agregarRegistro_paquete = (req, res) => {
-    const p = new registro_paquetes_schema_1.Registro_paqueteSchema({
-        "id_registro": req.body.id_registro,
-        "id_repositorio": req.body.id_repositorio,
-        "nombre_paquete": req.body.nombre_paquete,
-        "version_paquete": req.body.version_paquete,
-        "fecha_creacion": req.body.fecha_creacion
-    });
-    p.save().then(saveResponse => {
-        res.send(saveResponse);
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al guardar', error });
-        res.end();
-    });
-};
+// Función para agregar un nuevo usuario
+const agregarRegistro_paquete = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { ID_REGISTRO, ID_REPOSITORIO, NOMBRE_PAQUETE, VERSION_PAQUETE, FECHA_CREACION } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`INSERT INTO C##GITHUB.TBL_REGISTRO_PAQUETES 
+      (ID_REGISTRO, ID_REPOSITORIO, NOMBRE_PAQUETE, VERSION_PAQUETE, FECHA_CREACION) 
+      VALUES 
+      (:ID_REGISTRO, :ID_REPOSITORIO, :NOMBRE_PAQUETE, :VERSION_PAQUETE, TO_DATE(:FECHA_CREACION, 'DD-MON-RR'))`, [ID_REGISTRO, ID_REPOSITORIO, NOMBRE_PAQUETE, VERSION_PAQUETE, FECHA_CREACION]);
+        yield connection.commit();
+        yield connection.close();
+        res.status(201).send({ message: ' agregado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al agregar:', error);
+        res.status(500).send({ message: 'Error en el servidor al agregar' });
+    }
+});
 exports.agregarRegistro_paquete = agregarRegistro_paquete;
-const actualizarRegistro_paquete = (req, res) => {
-    registro_paquetes_schema_1.Registro_paqueteSchema.updateOne({ id_registro: req.params.id_registro }, {
-        id_registro: req.body.id_registro,
-        id_repositorio: req.body.id_repositorio,
-        nombre_paquete: req.body.nombre_paquete,
-        version_paquete: req.body.version_paquete,
-        fecha_creacion: req.body.fecha_creacion
-    }).then(updateResponse => {
-        res.send({ message: 'actualizado', updateResponse });
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al actualizar', error });
-        res.end();
-    });
-};
+// Función para actualizar un usuario
+const actualizarRegistro_paquete = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_registro } = req.params;
+    const { ID_REPOSITORIO, NOMBRE_PAQUETE, VERSION_PAQUETE, FECHA_CREACION } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`UPDATE C##GITHUB.TBL_REGISTRO_PAQUETES 
+      SET 
+          ID_REPOSITORIO = :ID_REPOSITORIO,
+          NOMBRE_PAQUETE = :NOMBRE_PAQUETE,
+          VERSION_PAQUETE = :VERSION_PAQUETE,
+          FECHA_CREACION = TO_DATE(:FECHA_CREACION, 'DD-MON-RR')
+      WHERE 
+          id_registro = :id_registro
+      `, [
+            ID_REPOSITORIO,
+            NOMBRE_PAQUETE,
+            VERSION_PAQUETE,
+            FECHA_CREACION,
+            id_registro
+        ]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: ' actualizado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al actualizar :', error);
+        res.status(500).send({ message: 'Error en el servidor al actualizar' });
+    }
+});
 exports.actualizarRegistro_paquete = actualizarRegistro_paquete;
-const eliminarRegistro_paquete = (req, res) => {
-    registro_paquetes_schema_1.Registro_paqueteSchema.deleteOne({ id_registro: req.params.id_registro })
-        .then(removeResult => {
-        res.send({ message: 'eliminado', removeResult });
-        res.end();
-    });
-};
+// Función para eliminar un usuario
+const eliminarRegistro_paquete = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_registro } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`DELETE FROM C##GITHUB.TBL_REGISTRO_PAQUETES WHERE id_registro = :id_registro`, [id_registro]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'eliminado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al eliminar:', error);
+        res.status(500).send({ message: 'Error en el servidor al eliminar' });
+    }
+});
 exports.eliminarRegistro_paquete = eliminarRegistro_paquete;

@@ -1,59 +1,128 @@
 import {Request, Response} from 'express';
-import { Sponsor_propioSchema } from '../model/sponsor_propio.schema';
+const oracledb = require('oracledb');
+import { connectToDB, closeDB } from '../utils/database';
 
 
-export const obtenerSponsor_propio = (req: Request, res: Response) => {
-    Sponsor_propioSchema.findOne({id_sponsor_propio: req.params.id_sponsor_propio}).then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error));
-}
 
+// Función para obtener un usuario por su ID
+export const obtenerSponsor_propio = async (req: Request, res: Response) => {
+  const { id_sponsor_propio } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_SPONSOR_PROPIO WHERE id_sponsor_propio = :id_sponsor_propio`, [id_sponsor_propio]);
+    await connection.close();
+
+    if (result.rows.length === 0) {
+      res.status(404).send({ message: ' no encontrado' });
+    } else {
+      res.send(result.rows[0]);
+    }
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor' });
+  }
+};
+
+// Función para obtener todos los usuarios
 export const obtenerSponsor_propios = async (req: Request, res: Response) => {
-    Sponsor_propioSchema.find().then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error))
-}
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_SPONSOR_PROPIO ORDER BY id_sponsor_propio ASC`);
+    await connection.close();
 
-export const agregarSponsor_propio = (req:Request, res:Response)=> {
-  const p = new Sponsor_propioSchema(
-      {
-          "id_sponsor_propio": req.body.id_sponsor_propio,
-          "id_sponsor_elegible": req.body.id_sponsor_elegible,
-          "id_usuario": req.body.id_usuario
-        });
-        p.save().then(saveResponse=>{
-          res.send(saveResponse);
-          res.end();
-        }).catch(error=>{
-          res.send({message:'hubo un error al guardar', error});
-          res.end();
-        });
-}
+    res.send(result.rows);
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor al obtener' });
+  }
+};
 
-export const actualizarSponsor_propio = (req:Request, res:Response)=> {
-  Sponsor_propioSchema.updateOne({id_sponsor_propio: req.params.id_sponsor_propio}, {
+// Función para agregar un nuevo usuario
+export const agregarSponsor_propio = async (req: Request, res: Response) => {
+  const {ID_SPONSOR_PROPIO,ID_SPONSOR_ELEGIBLE,ID_USUARIO} = req.body;
 
-      id_sponsor_propio: req.body.id_sponsor_propio,
-      id_sponsor_elegible: req.body.id_sponsor_elegible,
-      id_usuario: req.body.id_usuario
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
 
-  }).then(updateResponse=>{
-      res.send({message:'actualizado',updateResponse});
-      res.end();
-    }).catch(error=>{
-      res.send({message:'hubo un error al actualizar', error});
-      res.end();
-    });
-}
+      `INSERT INTO C##GITHUB.TBL_SPONSOR_PROPIO 
+      (ID_SPONSOR_PROPIO, ID_SPONSOR_ELEGIBLE, ID_USUARIO) 
+      VALUES 
+      (:ID_SPONSOR_PROPIO, :ID_SPONSOR_ELEGIBLE, :ID_USUARIO)
+      
+      `, 
+       [ID_SPONSOR_PROPIO,ID_SPONSOR_ELEGIBLE,ID_USUARIO]
+      );
+    await connection.commit();
+    await connection.close();
 
-export const eliminarSponsor_propio = (req:Request, res:Response)=> {
-  Sponsor_propioSchema.deleteOne({id_sponsor_propio: req.params.id_sponsor_propio})
-  .then(removeResult=>{
-      res.send({message:'eliminado', removeResult});
-      res.end();
-  });
-}
+    res.status(201).send({ message: ' agregado exitosamente' });
+  } catch (error) {
+    console.error('Error al agregar:', error);
+    res.status(500).send({ message: 'Error en el servidor al agregar' });
+  }
+};
+
+
+// Función para actualizar un usuario
+export const actualizarSponsor_propio = async (req: Request, res: Response) => {
+  const { id_sponsor_propio } = req.params;
+  const {
+         ID_SPONSOR_ELEGIBLE,
+         ID_USUARIO
+  } = req.body;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
+
+      `UPDATE C##GITHUB.TBL_SPONSOR_PROPIO 
+      SET 
+          ID_SPONSOR_ELEGIBLE = :ID_SPONSOR_ELEGIBLE,
+          ID_USUARIO = :ID_USUARIO
+      WHERE 
+          id_sponsor_propio = :id_sponsor_propio`, 
+           [
+            ID_SPONSOR_ELEGIBLE,
+            ID_USUARIO,
+            id_sponsor_propio
+           ]
+      );
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: ' actualizado exitosamente' });
+  } catch (error) {
+    console.error('Error al actualizar :', error);
+    res.status(500).send({ message: 'Error en el servidor al actualizar' });
+  }
+};
+
+
+// Función para eliminar un usuario
+export const eliminarSponsor_propio = async (req: Request, res: Response) => {
+  const { id_sponsor_propio } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(`DELETE FROM C##GITHUB.TBL_SPONSOR_PROPIO WHERE id_sponsor_propio = :id_sponsor_propio`, [id_sponsor_propio]);
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: 'eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar:', error);
+    res.status(500).send({ message: 'Error en el servidor al eliminar' });
+  }
+};

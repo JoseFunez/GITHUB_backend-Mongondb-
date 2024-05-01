@@ -10,63 +10,118 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eliminarDeploy = exports.actualizarDeploy = exports.agregarDeploy = exports.obtenerDeploys = exports.obtenerDeploy = void 0;
-const deployment_schema_1 = require("../model/deployment.schema");
-const obtenerDeploy = (req, res) => {
-    deployment_schema_1.DeploymentSchema.findOne({ id_deploy: req.params.id_deploy }).then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
-};
+const oracledb = require('oracledb');
+const database_1 = require("../utils/database");
+// Función para obtener un usuario por su ID
+const obtenerDeploy = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_deploy } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_DEPLOYMENT WHERE id_deploy = :id_deploy`, [id_deploy]);
+        yield connection.close();
+        if (result.rows.length === 0) {
+            res.status(404).send({ message: ' no encontrado' });
+        }
+        else {
+            res.send(result.rows[0]);
+        }
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor' });
+    }
+});
 exports.obtenerDeploy = obtenerDeploy;
+// Función para obtener todos los usuarios
 const obtenerDeploys = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    deployment_schema_1.DeploymentSchema.find().then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_DEPLOYMENT ORDER BY id_deploy ASC`);
+        yield connection.close();
+        res.send(result.rows);
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener' });
+    }
 });
 exports.obtenerDeploys = obtenerDeploys;
-const agregarDeploy = (req, res) => {
-    const p = new deployment_schema_1.DeploymentSchema({
-        "id_deploy": req.body.id_deploy,
-        "id_usuario": req.body.id_usuario,
-        "id_repositorio": req.body.id_repositorio,
-        "entorno": req.body.entorno,
-        "date_deploy": req.body.date_deploy,
-        "status": req.body.status
-    });
-    p.save().then(saveResponse => {
-        res.send(saveResponse);
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al guardar', error });
-        res.end();
-    });
-};
+// Función para agregar un nuevo usuario
+const agregarDeploy = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { ID_DEPLOY, ID_USUARIO, ID_REPOSITORIO, ENTORNO, DATE_DEPLOY, STATUS } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`INSERT INTO C##GITHUB.TBL_DEPLOYMENT 
+      (ID_DEPLOY, ID_USUARIO, ID_REPOSITORIO, ENTORNO, DATE_DEPLOY, STATUS) 
+      VALUES 
+      (:ID_DEPLOY, :ID_USUARIO, :ID_REPOSITORIO, :ENTORNO, TO_DATE(:DATE_DEPLOY, 'DD-MON-RR'), :STATUS)
+      `, [ID_DEPLOY, ID_USUARIO, ID_REPOSITORIO, ENTORNO, DATE_DEPLOY, STATUS]);
+        yield connection.commit();
+        yield connection.close();
+        res.status(201).send({ message: ' agregado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al agregar:', error);
+        res.status(500).send({ message: 'Error en el servidor al agregar' });
+    }
+});
 exports.agregarDeploy = agregarDeploy;
-const actualizarDeploy = (req, res) => {
-    deployment_schema_1.DeploymentSchema.updateOne({ id_deploy: req.params.id_deploy }, {
-        id_deploy: req.body.id_deploy,
-        id_usuario: req.body.id_usuario,
-        id_repositorio: req.body.id_repositorio,
-        entorno: req.body.entorno,
-        date_deploy: req.body.date_deploy,
-        status: req.body.status
-    }).then(updateResponse => {
-        res.send({ message: 'actualizado', updateResponse });
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al actualizar', error });
-        res.end();
-    });
-};
+// Función para actualizar un usuario
+const actualizarDeploy = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_deploy } = req.params;
+    const { ID_USUARIO, ID_REPOSITORIO, ENTORNO, DATE_DEPLOY, STATUS } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`UPDATE C##GITHUB.TBL_DEPLOYMENT 
+      SET 
+          ID_USUARIO = :ID_USUARIO,
+          ID_REPOSITORIO = :ID_REPOSITORIO,
+          ENTORNO = :ENTORNO,
+          DATE_DEPLOY = TO_DATE(:DATE_DEPLOY, 'DD-MON-RR'),
+          STATUS = :STATUS
+      WHERE 
+          id_deploy = :id_deploy
+      `, [
+            ID_USUARIO,
+            ID_REPOSITORIO,
+            ENTORNO,
+            DATE_DEPLOY,
+            STATUS,
+            id_deploy
+        ]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: ' actualizado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al actualizar :', error);
+        res.status(500).send({ message: 'Error en el servidor al actualizar' });
+    }
+});
 exports.actualizarDeploy = actualizarDeploy;
-const eliminarDeploy = (req, res) => {
-    deployment_schema_1.DeploymentSchema.deleteOne({ id_deploy: req.params.id_deploy })
-        .then(removeResult => {
-        res.send({ message: 'eliminado', removeResult });
-        res.end();
-    });
-};
+// Función para eliminar un usuario
+const eliminarDeploy = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_deploy } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`DELETE FROM C##GITHUB.TBL_DEPLOYMENT WHERE id_deploy = :id_deploy`, [id_deploy]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'eliminado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al eliminar:', error);
+        res.status(500).send({ message: 'Error en el servidor al eliminar' });
+    }
+});
 exports.eliminarDeploy = eliminarDeploy;

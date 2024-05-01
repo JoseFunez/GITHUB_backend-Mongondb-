@@ -1,63 +1,132 @@
 import {Request, Response} from 'express';
-import { MilestoneSchema } from '../model/milestone.schema';
+const oracledb = require('oracledb');
+import { connectToDB, closeDB } from '../utils/database';
 
 
-export const obtenerMilestone = (req: Request, res: Response) => {
-    MilestoneSchema.findOne({id_milestone: req.params.id_milestone}).then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error));
-}
 
+// Función para obtener un usuario por su ID
+export const obtenerMilestone = async (req: Request, res: Response) => {
+  const { id_milestone } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_MILESTONES WHERE id_milestone = :id_milestone`, [id_milestone]);
+    await connection.close();
+
+    if (result.rows.length === 0) {
+      res.status(404).send({ message: ' no encontrado' });
+    } else {
+      res.send(result.rows[0]);
+    }
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor' });
+  }
+};
+
+// Función para obtener todos los usuarios
 export const obtenerMilestones = async (req: Request, res: Response) => {
-    MilestoneSchema.find().then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error))
-}
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_MILESTONES ORDER BY id_milestone ASC`);
+    await connection.close();
 
-export const agregarMilestone = (req:Request, res:Response)=> {
-  const p = new MilestoneSchema(
-      {
-          "id_milestone": req.body.id_milestone,
-          "id_repositorio": req.body.id_repositorios,
-          "nombre": req.body.nombre,
-          "descripcion": req.body.descripcion,
-          "due_date": req.body.due_date
-        });
-        p.save().then(saveResponse=>{
-          res.send(saveResponse);
-          res.end();
-        }).catch(error=>{
-          res.send({message:'hubo un error al guardar', error});
-          res.end();
-        });
-}
+    res.send(result.rows);
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor al obtener' });
+  }
+};
 
-export const actualizarMilestone = (req:Request, res:Response)=> {
-    MilestoneSchema.updateOne({id_milestone: req.params.id_milestone}, {
-     
-      id_milestone: req.body.id_milestone,
-      id_repositorio: req.body.id_repositorios,
-      nombre: req.body.nombre,
-      descripcion: req.body.descripcion,
-      due_date: req.body.due_date
+// Función para agregar un nuevo usuario
+export const agregarMilestone = async (req: Request, res: Response) => {
+  const {ID_MILESTONE,ID_REPOSITORIO,TITTLE_MILESTONE,DESCRIPTION_MILESTONE,DUE_DATE} = req.body;
 
-  }).then(updateResponse=>{
-      res.send({message:'actualizado',updateResponse});
-      res.end();
-    }).catch(error=>{
-      res.send({message:'hubo un error al actualizar', error});
-      res.end();
-    });
-}
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
 
-export const eliminarMilestone = (req:Request, res:Response)=> {
-    MilestoneSchema.deleteOne({id_milestone: req.params.id_milestone})
-  .then(removeResult=>{
-      res.send({message:'eliminado', removeResult});
-      res.end();
-  });
-}
+      `INSERT INTO C##GITHUB.TBL_MILESTONES 
+      (ID_MILESTONE, ID_REPOSITORIO, TITTLE_MILESTONE, DESCRIPTION_MILESTONE, DUE_DATE) 
+      VALUES 
+      (:ID_MILESTONE, :ID_REPOSITORIO, :TITTLE_MILESTONE, :DESCRIPTION_MILESTONE, TO_DATE(:DUE_DATE, 'DD-MON-RR'))`, 
+       [ID_MILESTONE,ID_REPOSITORIO,TITTLE_MILESTONE,DESCRIPTION_MILESTONE,DUE_DATE]
+      );
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send({ message: ' agregado exitosamente' });
+  } catch (error) {
+    console.error('Error al agregar:', error);
+    res.status(500).send({ message: 'Error en el servidor al agregar' });
+  }
+};
+
+
+// Función para actualizar un usuario
+export const actualizarMilestone = async (req: Request, res: Response) => {
+  const { id_milestone } = req.params;
+  const {
+         ID_REPOSITORIO,
+         TITTLE_MILESTONE,
+         DESCRIPTION_MILESTONE,
+         DUE_DATE
+  } = req.body;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
+
+      `UPDATE C##GITHUB.TBL_MILESTONES 
+      SET 
+          ID_REPOSITORIO = :ID_REPOSITORIO,
+          TITTLE_MILESTONE = :TITTLE_MILESTONE,
+          DESCRIPTION_MILESTONE = :DESCRIPTION_MILESTONE,
+          DUE_DATE = TO_DATE(:DUE_DATE, 'DD-MON-RR')
+      WHERE 
+          id_milestone = :id_milestone`, 
+           [
+            ID_REPOSITORIO,
+            TITTLE_MILESTONE,
+            DESCRIPTION_MILESTONE,
+            DUE_DATE,
+            id_milestone
+           ]
+      );
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: ' actualizado exitosamente' });
+  } catch (error) {
+    console.error('Error al actualizar :', error);
+    res.status(500).send({ message: 'Error en el servidor al actualizar' });
+  }
+};
+
+
+// Función para eliminar un usuario
+export const eliminarMilestone = async (req: Request, res: Response) => {
+  const { id_milestone } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(`DELETE FROM C##GITHUB.TBL_MILESTONES WHERE id_milestone = :id_milestone`, [id_milestone]);
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: 'eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar:', error);
+    res.status(500).send({ message: 'Error en el servidor al eliminar' });
+  }
+};

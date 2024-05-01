@@ -1,64 +1,133 @@
 import {Request, Response} from 'express';
-import { SecretosSchema } from '../model/secretos.schema';
+const oracledb = require('oracledb');
+import { connectToDB, closeDB } from '../utils/database';
 
 
-export const obtenerSecreto = (req: Request, res: Response) => {
-    SecretosSchema.findOne({id_secrets: req.params.id_secrets}).then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error));
-}
 
+// Función para obtener un usuario por su ID
+export const obtenerSecreto = async (req: Request, res: Response) => {
+  const { id_secrets } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_SECRETOS WHERE id_secrets = :id_secrets`, [id_secrets]);
+    await connection.close();
+
+    if (result.rows.length === 0) {
+      res.status(404).send({ message: ' no encontrado' });
+    } else {
+      res.send(result.rows[0]);
+    }
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor' });
+  }
+};
+
+// Función para obtener todos los usuarios
 export const obtenerSecretos = async (req: Request, res: Response) => {
-    SecretosSchema.find().then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error))
-}
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_SECRETOS ORDER BY ID_secrets ASC`);
+    await connection.close();
 
-export const agregarSecreto = (req:Request, res:Response)=> {
-  const p = new SecretosSchema(
-      {
+    res.send(result.rows);
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor al obtener' });
+  }
+};
 
-          "id_secrets": req.body.id_secrets,
-          "id_repositorio": req.body.id_repositorio,
-          "nombre": req.body.nombre,
-          "valor": req.body.valor,
-          "fecha_creacion": req.body.fecha_creacion
-        });
-        p.save().then(saveResponse=>{
-          res.send(saveResponse);
-          res.end();
-        }).catch(error=>{
-          res.send({message:'hubo un error al guardar', error});
-          res.end();
-        });
-}
+// Función para agregar un nuevo usuario
+export const agregarSecreto = async (req: Request, res: Response) => {
+  const {ID_SECRETS,ID_REPOSITORIO,NOMBRE,VALOR,FECHA_CREACION} = req.body;
 
-export const actualizarSecreto = (req:Request, res:Response)=> {
-    SecretosSchema.updateOne({id_secrets: req.params.id_secrets}, {
-        
-      id_secrets: req.body.id_secrets,
-      id_repositorio: req.body.id_repositorio,
-      nombre: req.body.nombre,
-      valor: req.body.valor,
-      fecha_creacion: req.body.fecha_creacion
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
 
-  }).then(updateResponse=>{
-      res.send({message:'actualizado',updateResponse});
-      res.end();
-    }).catch(error=>{
-      res.send({message:'hubo un error al actualizar', error});
-      res.end();
-    });
-}
+      `INSERT INTO C##GITHUB.TBL_SECRETOS 
+      (ID_SECRETS, ID_REPOSITORIO, NOMBRE, VALOR, FECHA_CREACION) 
+      VALUES 
+      (:ID_SECRETS, :ID_REPOSITORIO, :NOMBRE, :VALOR, TO_DATE(:FECHA_CREACION, 'DD-MON-RR'))
+      `, 
+       [ID_SECRETS,ID_REPOSITORIO,NOMBRE,VALOR,FECHA_CREACION]
+      );
+    await connection.commit();
+    await connection.close();
 
-export const eliminarSecreto = (req:Request, res:Response)=> {
-    SecretosSchema.deleteOne({id_secrets: req.params.id_secrets})
-  .then(removeResult=>{
-      res.send({message:'eliminado', removeResult});
-      res.end();
-  });
-}
+    res.status(201).send({ message: ' agregado exitosamente' });
+  } catch (error) {
+    console.error('Error al agregar:', error);
+    res.status(500).send({ message: 'Error en el servidor al agregar' });
+  }
+};
+
+
+// Función para actualizar un usuario
+export const actualizarSecreto = async (req: Request, res: Response) => {
+  const { id_secrets } = req.params;
+  const {
+         ID_REPOSITORIO,
+         NOMBRE,
+         VALOR,
+         FECHA_CREACION
+  } = req.body;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
+
+      `UPDATE C##GITHUB.TBL_SECRETOS 
+      SET 
+          ID_REPOSITORIO = :ID_REPOSITORIO,
+          NOMBRE = :NOMBRE, 
+          VALOR = :VALOR, 
+          FECHA_CREACION = TO_DATE(:FECHA_CREACION, 'DD-MON-RR')
+      WHERE 
+          ID_SECRETS = :ID_SECRETS `, 
+           [
+            ID_REPOSITORIO,
+            NOMBRE,
+            VALOR,
+            FECHA_CREACION,
+            id_secrets
+           ]
+      );
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: ' actualizado exitosamente' });
+  } catch (error) {
+    console.error('Error al actualizar :', error);
+    res.status(500).send({ message: 'Error en el servidor al actualizar' });
+  }
+};
+
+
+// Función para eliminar un usuario
+export const eliminarSecreto = async (req: Request, res: Response) => {
+  const { id_secrets } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(`DELETE FROM C##GITHUB.TBL_SECRETOS WHERE id_secrets = :id_secrets`, [id_secrets]);
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: 'eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar:', error);
+    res.status(500).send({ message: 'Error en el servidor al eliminar' });
+  }
+};

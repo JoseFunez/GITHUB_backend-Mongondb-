@@ -1,61 +1,129 @@
 import {Request, Response} from 'express';
-import { BranchSchema } from '../model/branch.schema';
+const oracledb = require('oracledb');
+import { connectToDB, closeDB } from '../utils/database';
 
 
-export const obtenerBranch = (req: Request, res: Response) => {
-    BranchSchema.findOne({id_branch: req.params.id_branch}).then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error));
-}
 
+// Función para obtener un usuario por su ID
+export const obtenerBranch = async (req: Request, res: Response) => {
+  const { id_branch } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_BRANCH WHERE id_branch = :id_branch`, [id_branch]);
+    await connection.close();
+
+    if (result.rows.length === 0) {
+      res.status(404).send({ message: ' no encontrado' });
+    } else {
+      res.send(result.rows[0]);
+    }
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor' });
+  }
+};
+
+// Función para obtener todos los usuarios
 export const obtenerBranchs = async (req: Request, res: Response) => {
-    BranchSchema.find().then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error))
-}
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_BRANCH ORDER BY id_branch ASC`);
+    await connection.close();
 
-export const agregarBranch = (req:Request, res:Response)=> {
-  const p = new BranchSchema(
-      {
+    res.send(result.rows);
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor al obtener' });
+  }
+};
 
-          "id_branch": req.body.id_branch,
-          "id_repositorio": req.body.id_repositorio,
-          "nombre": req.body.nombre,
-          "fecha_creacion": req.body.fecha_creacion
-        });
-        p.save().then(saveResponse=>{
-          res.send(saveResponse);
-          res.end();
-        }).catch(error=>{
-          res.send({message:'hubo un error al guardar', error});
-          res.end();
-        });
-}
+// Función para agregar un nuevo usuario
+export const agregarBranch = async (req: Request, res: Response) => {
+  const {ID_BRANCH,ID_REPOSITORIO,NOMBRE,FECHA_CREACION} = req.body;
 
-export const actualizarBranch = (req:Request, res:Response)=> {
-    BranchSchema.updateOne({id_branch: req.params.id_branch}, {
-      id_branch: req.body.id_branch,
-      id_repositorio: req.body.id_repositorio,
-      nombre: req.body.nombre,
-      fecha_creacion: req.body.fecha_creacion
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
 
-  }).then(updateResponse=>{
-      res.send({message:'actualizado',updateResponse});
-      res.end();
-    }).catch(error=>{
-      res.send({message:'hubo un error al actualizar', error});
-      res.end();
-    });
-}
+      `INSERT INTO C##GITHUB.TBL_BRANCH 
+      (ID_BRANCH, ID_REPOSITORIO, NOMBRE, FECHA_CREACION) 
+      VALUES 
+      (:ID_BRANCH, :ID_REPOSITORIO, :NOMBRE, TO_DATE(:FECHA_CREACION, 'DD-MON-RR'))`, 
+       [ID_BRANCH,ID_REPOSITORIO,NOMBRE,FECHA_CREACION]
+      );
+    await connection.commit();
+    await connection.close();
 
-export const eliminarBranch = (req:Request, res:Response)=> {
-    BranchSchema.deleteOne({id_branch: req.params.id_branch})
-  .then(removeResult=>{
-      res.send({message:'eliminado', removeResult});
-      res.end();
-  });
-}
+    res.status(201).send({ message: ' agregado exitosamente' });
+  } catch (error) {
+    console.error('Error al agregar:', error);
+    res.status(500).send({ message: 'Error en el servidor al agregar' });
+  }
+};
+
+
+// Función para actualizar un usuario
+export const actualizarBranch = async (req: Request, res: Response) => {
+  const { id_branch } = req.params;
+  const {
+         ID_REPOSITORIO,
+         NOMBRE,
+         FECHA_CREACION
+  } = req.body;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
+
+      `UPDATE C##GITHUB.TBL_BRANCH 
+      SET 
+          ID_REPOSITORIO = :ID_REPOSITORIO,
+          NOMBRE = :NOMBRE,
+          FECHA_CREACION = TO_DATE(:FECHA_CREACION, 'DD-MON-RR')
+      WHERE 
+          id_branch = :id_branch`, 
+           [
+            ID_REPOSITORIO,
+            NOMBRE,
+            FECHA_CREACION,
+            id_branch
+           ]
+      );
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: ' actualizado exitosamente' });
+  } catch (error) {
+    console.error('Error al actualizar :', error);
+    res.status(500).send({ message: 'Error en el servidor al actualizar' });
+  }
+};
+
+
+// Función para eliminar un usuario
+export const eliminarBranch = async (req: Request, res: Response) => {
+  const { id_branch } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(`DELETE FROM C##GITHUB.TBL_BRANCH WHERE id_branch = :id_branch`, [id_branch]);
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: 'eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar:', error);
+    res.status(500).send({ message: 'Error en el servidor al eliminar' });
+  }
+};

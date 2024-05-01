@@ -10,68 +10,134 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eliminarRepositorio = exports.actualizarRepositorio = exports.agregarRepositorio = exports.obtenerRepositorios = exports.obtenerRepositorio = void 0;
-const repositorios_schema_1 = require("../model/repositorios.schema");
-const obtenerRepositorio = (req, res) => {
-    /*res.send('obtener el usuario: ' + req.params.id);
-    res.end();*/
-    repositorios_schema_1.RepositoriosSchema.findOne({ id_repositorio: req.params.id_repositorio }).then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
-};
+const oracledb = require('oracledb');
+const database_1 = require("../utils/database");
+// Función para obtener un usuario por su ID
+const obtenerRepositorio = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_repositorio } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_REPOSITORIO WHERE id_repositorio = :id_repositorio`, [id_repositorio]);
+        yield connection.close();
+        if (result.rows.length === 0) {
+            res.status(404).send({ message: 'repositorio no encontrado' });
+        }
+        else {
+            res.send(result.rows[0]);
+        }
+    }
+    catch (error) {
+        console.error('Error al obtener repositorio:', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener repositorio' });
+    }
+});
 exports.obtenerRepositorio = obtenerRepositorio;
+// Función para obtener todos los usuarios
 const obtenerRepositorios = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    /*res.send('obtener todos los usuarios');
-    res.end();*/
-    repositorios_schema_1.RepositoriosSchema.find().then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_REPOSITORIO ORDER BY ID_USUARIO ASC`);
+        yield connection.close();
+        res.send(result.rows);
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener' });
+    }
 });
 exports.obtenerRepositorios = obtenerRepositorios;
-const agregarRepositorio = (req, res) => {
-    const p = new repositorios_schema_1.RepositoriosSchema({
-        "id_repositorio": req.body.id_repositorio,
-        "nombre_repositorio": req.body.nombre_repositorio,
-        "id_usuario": req.body.id_usuario,
-        "fecha_creacion_repositorio": req.body.fecha_creacion_repositorio,
-        "fecha_ultima_actualizacion": req.body.fecha_ultima_actualizacion,
-        "lenguaje_principal": req.body.lenguaje_principal
-    });
-    p.save().then(saveResponse => {
-        res.send(saveResponse);
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al guardar el repositorio', error });
-        res.end();
-    });
-};
+// Función para agregar un nuevo usuario
+const agregarRepositorio = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { ID_REPOSITORIO, ID_USUARIO, NOMBRE_REPOSITORIO, DESCRIPCION, FECHA_CREACION_REPOSITORIO, FECHA_ULTIMA_ACTUALIZACION, NUMERO_ESTRELLAS, NUMERO_FORKS, LENGUAJE_PRINCIPAL, CANTIDAD_PULLS, CANTIDAD_ISSUES } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`Insert into C##GITHUB.TBL_REPOSITORIO 
+      (ID_REPOSITORIO, ID_USUARIO, NOMBRE_REPOSITORIO, DESCRIPCION, FECHA_CREACION_REPOSITORIO, FECHA_ULTIMA_ACTUALIZACION, NUMERO_ESTRELLAS, NUMERO_FORKS, LENGUAJE_PRINCIPAL, CANTIDAD_PULLS, CANTIDAD_ISSUES) 
+      values (:ID_REPOSITORIO, 
+              :ID_USUARIO, 
+              :NOMBRE_REPOSITORIO, 
+              :DESCRIPCION, 
+              to_date(:FECHA_CREACION_REPOSITORIO,'DD-MON-RR'), 
+              to_date(:FECHA_ULTIMA_ACTUALIZACION,'DD-MON-RR'), 
+              :NUMERO_ESRELLAS, 
+              :NUMERO_FORKS, 
+              :LENGUAJE_PRINCIPAL, 
+              :CANTIDAD_PULLS, 
+              :CANTIDAD_ISSUES)`, [ID_REPOSITORIO, ID_USUARIO, NOMBRE_REPOSITORIO, DESCRIPCION, FECHA_CREACION_REPOSITORIO, FECHA_ULTIMA_ACTUALIZACION, NUMERO_ESTRELLAS, NUMERO_FORKS, LENGUAJE_PRINCIPAL, CANTIDAD_PULLS, CANTIDAD_ISSUES]);
+        yield connection.commit();
+        yield connection.close();
+        res.status(201).send({ message: ' repositorio agregado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al agregar:', error);
+        res.status(500).send({ message: 'Error en el servidor al agregar' });
+    }
+});
 exports.agregarRepositorio = agregarRepositorio;
-const actualizarRepositorio = (req, res) => {
-    repositorios_schema_1.RepositoriosSchema.updateOne({ id_repositorio: req.params.id_repositorio }, {
-        id_repositorio: req.body.id_repositorio,
-        nombre_repositorio: req.body.nombre_repositorio,
-        id_usuario: req.body.id_usuario,
-        fecha_creacion_repositorio: req.body.fecha_creacion_repositorio,
-        fecha_ultima_actualizacion: req.body.fecha_ultima_actualizacion,
-        lenguaje_principal: req.body.lenguaje_principal
-    }).then(updateResponse => {
-        res.send({ message: 'repositorio actualizado', updateResponse });
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al actualizar el repositorio', error });
-        res.end();
-    });
-    //res.end();
-};
+// Función para actualizar un usuario
+const actualizarRepositorio = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_repositorio } = req.params;
+    const { ID_USUARIO, NOMBRE_REPOSITORIO, DESCRIPCION, FECHA_CREACION_REPOSITORIO, FECHA_ULTIMA_ACTUALIZACION, NUMERO_ESTRELLAS, NUMERO_FORKS, LENGUAJE_PRINCIPAL, CANTIDAD_PULLS, CANTIDAD_ISSUES } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`UPDATE C##GITHUB.TBL_REPOSITORIO 
+      SET 
+          id_usuario = :id_usuario,
+          NOMBRE_REPOSITORIO = :NOMBRE_REPOSITORIO, 
+          DESCRIPCION = :DESCRIPCION, 
+          FECHA_CREACION_REPOSITORIO = TO_DATE(:FECHA_CREACION_REPOSITORIO, 'DD-MON-RR'), 
+          FECHA_ULTIMA_ACTUALIZACION = TO_DATE(:FECHA_ULTIMA_ACTUALIZACION, 'DD-MON-RR'), 
+          NUMERO_ESTRELLAS = :NUMERO_ESTRELLAS, 
+          NUMERO_FORKS = :NUMERO_FORKS, 
+          LENGUAJE_PRINCIPAL = :LENGUAJE_PRINCIPAL, 
+          CANTIDAD_PULLS = :CANTIDAD_PULLS, 
+          CANTIDAD_ISSUES = :CANTIDAD_ISSUES 
+      WHERE 
+          id_repositorio = :id_repositorio`, [ID_USUARIO,
+            NOMBRE_REPOSITORIO,
+            DESCRIPCION,
+            FECHA_CREACION_REPOSITORIO,
+            FECHA_ULTIMA_ACTUALIZACION,
+            NUMERO_ESTRELLAS,
+            NUMERO_FORKS,
+            LENGUAJE_PRINCIPAL,
+            CANTIDAD_PULLS,
+            CANTIDAD_ISSUES,
+            id_repositorio
+        ]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: ' actualizado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al actualizar :', error);
+        res.status(500).send({ message: 'Error en el servidor al actualizar' });
+    }
+});
 exports.actualizarRepositorio = actualizarRepositorio;
-const eliminarRepositorio = (req, res) => {
-    repositorios_schema_1.RepositoriosSchema.deleteOne({ id_repositorio: req.params.id_repositorio })
-        .then(removeResult => {
-        res.send({ message: 'repositorio eliminado', removeResult });
-        res.end();
-    });
-};
+// Función para eliminar un usuario
+const eliminarRepositorio = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_repositorio } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`DELETE FROM C##GITHUB.TBL_USUARIOS WHERE id_repositorio = :id_repositorio`, [id_repositorio]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'eliminado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al eliminar:', error);
+        res.status(500).send({ message: 'Error en el servidor al eliminar usuario' });
+    }
+});
 exports.eliminarRepositorio = eliminarRepositorio;

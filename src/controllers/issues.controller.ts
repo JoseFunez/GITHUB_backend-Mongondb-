@@ -1,67 +1,141 @@
 import {Request, Response} from 'express';
-import { IssuesSchema } from '../model/issues.schema';
+const oracledb = require('oracledb');
+import { connectToDB, closeDB } from '../utils/database';
 
 
-export const obtenerIssue = (req: Request, res: Response) => {
-    IssuesSchema.findOne({id_issues: req.params.id_issues}).then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error));
-}
 
+// Función para obtener un usuario por su ID
+export const obtenerIssue = async (req: Request, res: Response) => {
+  const { id_issues } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_ISSUES WHERE id_issues = :id_issues`, [id_issues]);
+    await connection.close();
+
+    if (result.rows.length === 0) {
+      res.status(404).send({ message: ' no encontrado' });
+    } else {
+      res.send(result.rows[0]);
+    }
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor' });
+  }
+};
+
+// Función para obtener todos los usuarios
 export const obtenerIssues = async (req: Request, res: Response) => {
-    IssuesSchema.find().then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error))
-}
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_ISSUES ORDER BY id_issues ASC`);
+    await connection.close();
 
-export const agregarIssue = (req:Request, res:Response)=> {
-  const p = new IssuesSchema(
-      {
-          "id_issues": req.body.id_issues,
-          "id_repositorio": req.body.id_repositorio,
-          "titulo_issue": req.body.titulo_issue,
-          "descripcion_issue": req.body.descripcion_issue,
-          "estado_issue": req.body.estado_issue,
-          "fecha_creacion_issue": req.body.fecha_creacion_issue,
-          "ultima_fecha_actualizacion": req.body.ultima_fecha_actualizacion
-        });
-        p.save().then(saveResponse=>{
-          res.send(saveResponse);
-          res.end();
-        }).catch(error=>{
-          res.send({message:'hubo un error al guardar', error});
-          res.end();
-        });
-}
+    res.send(result.rows);
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor al obtener' });
+  }
+};
 
-export const actualizarIssue = (req:Request, res:Response)=> {
-    IssuesSchema.updateOne({id_issues: req.params.id_issues}, {
+// Función para agregar un nuevo usuario
+export const agregarIssue = async (req: Request, res: Response) => {
+  const {ID_ISSUES,ID_REPOSITORIO,TITULO_ISSUE,DESCRIPCION_ISSUE,ESTADO_ISSUE,FECHA_CREACION_ISSUE,FECHA_CIERRE_ISSUE,ULTIMA_FECHA_ACTUALIZACION} = req.body;
 
-      id_issues: req.body.id_issues,
-      id_repositorio : req.body.id_repositorio,
-      titulo_issue: req.body.titulo_issue,
-      descripcion_issue: req.body.descripcion_issue,
-      estado_issue: req.body.estado_issue,
-      fecha_creacion_issue: req.body.fecha_creacion_issue,
-      ultima_fecha_actualizacion: req.body.ultima_fecha_actualizacion
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
 
-  }).then(updateResponse=>{
-      res.send({message:'actualizado',updateResponse});
-      res.end();
-    }).catch(error=>{
-      res.send({message:'hubo un error al actualizar', error});
-      res.end();
-    });
-}
+      `INSERT INTO C##GITHUB.TBL_ISSUES 
+      (ID_ISSUES, ID_REPOSITORIO, TITULO_ISSUE, DESCRIPCION_ISSUE, ESTADO_ISSUE, FECHA_CREACION_ISSUE, FECHA_CIERRE_ISSUE, ULTIMA_FECHA_ACTUALIZACION) 
+      VALUES 
+      (:ID_ISSUES, :ID_REPOSITORIO, :TITULO_ISSUE, :DESCRIPCION_ISSUE, :ESTADO_ISSUE, TO_DATE(:FECHA_CREACION_ISSUE, 'DD-MON-RR'), TO_DATE(:FECHA_CIERRE_ISSUE, 'DD-MON-RR'), TO_DATE(:ULTIMA_FECHA_ACTUALIZACION, 'DD-MON-RR'))`, 
+       [ID_ISSUES,ID_REPOSITORIO,TITULO_ISSUE,DESCRIPCION_ISSUE,ESTADO_ISSUE,FECHA_CREACION_ISSUE,FECHA_CIERRE_ISSUE,ULTIMA_FECHA_ACTUALIZACION]
+      );
+    await connection.commit();
+    await connection.close();
 
-export const eliminarIssue = (req:Request, res:Response)=> {
-    IssuesSchema.deleteOne({id_issues: req.params.id_issues})
-  .then(removeResult=>{
-      res.send({message:'eliminado', removeResult});
-      res.end();
-  });
-}
+    res.status(201).send({ message: ' agregado exitosamente' });
+  } catch (error) {
+    console.error('Error al agregar:', error);
+    res.status(500).send({ message: 'Error en el servidor al agregar' });
+  }
+};
+
+
+// Función para actualizar un usuario
+export const actualizarIssue = async (req: Request, res: Response) => {
+  const { id_issues } = req.params;
+  const {
+         ID_REPOSITORIO,
+         TITULO_ISSUE,
+         DESCRIPCION_ISSUE,
+         ESTADO_ISSUE,
+         FECHA_CREACION_ISSUE,
+         FECHA_CIERRE_ISSUE,
+         ULTIMA_FECHA_ACTUALIZACION
+  } = req.body;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
+
+      `UPDATE C##GITHUB.TBL_ISSUES 
+      SET 
+          ID_REPOSITORIO = :ID_REPOSITORIO,
+          TITULO_ISSUE = :TITULO_ISSUE,
+          DESCRIPCION_ISSUE = :DESCRIPCION_ISSUE,
+          ESTADO_ISSUE = :ESTADO_ISSUE,
+          FECHA_CREACION_ISSUE = TO_DATE(:FECHA_CREACION_ISSUE, 'DD-MON-RR'),
+          FECHA_CIERRE_ISSUE = TO_DATE(:FECHA_CIERRE_ISSUE, 'DD-MON-RR'),
+          ULTIMA_FECHA_ACTUALIZACION = TO_DATE(:ULTIMA_FECHA_ACTUALIZACION, 'DD-MON-RR')
+      WHERE 
+          id_issues = :id_issues`, 
+           [
+            ID_REPOSITORIO,
+            TITULO_ISSUE,
+            DESCRIPCION_ISSUE,
+            ESTADO_ISSUE,
+            FECHA_CREACION_ISSUE,
+            FECHA_CIERRE_ISSUE,
+            ULTIMA_FECHA_ACTUALIZACION,
+            id_issues
+           ]
+      );
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: ' actualizado exitosamente' });
+  } catch (error) {
+    console.error('Error al actualizar :', error);
+    res.status(500).send({ message: 'Error en el servidor al actualizar' });
+  }
+};
+
+
+// Función para eliminar un usuario
+export const eliminarIssue = async (req: Request, res: Response) => {
+  const { id_issues } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(`DELETE FROM C##GITHUB.TBL_ISSUES WHERE id_issues = :id_issues`, [id_issues]);
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: 'eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar:', error);
+    res.status(500).send({ message: 'Error en el servidor al eliminar' });
+  }
+};

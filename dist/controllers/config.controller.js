@@ -10,59 +10,113 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eliminarConfig = exports.actualizarConfig = exports.agregarConfig = exports.obtenerConfigs = exports.obtenerConfig = void 0;
-const config_schema_1 = require("../model/config.schema");
-const obtenerConfig = (req, res) => {
-    config_schema_1.ConfigSchema.findOne({ id_config: req.params.id_config }).then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
-};
+const oracledb = require('oracledb');
+const database_1 = require("../utils/database");
+// Función para obtener un usuario por su ID
+const obtenerConfig = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_configuracion } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_CONFIG_ACCESO_REPOSITORIO WHERE id_configuracion = :id_configuracion`, [id_configuracion]);
+        yield connection.close();
+        if (result.rows.length === 0) {
+            res.status(404).send({ message: ' no encontrado' });
+        }
+        else {
+            res.send(result.rows[0]);
+        }
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor' });
+    }
+});
 exports.obtenerConfig = obtenerConfig;
+// Función para obtener todos los usuarios
 const obtenerConfigs = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    config_schema_1.ConfigSchema.find().then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_CONFIG_ACCESO_REPOSITORIO ORDER BY id_configuracion ASC`);
+        yield connection.close();
+        res.send(result.rows);
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener' });
+    }
 });
 exports.obtenerConfigs = obtenerConfigs;
-const agregarConfig = (req, res) => {
-    const p = new config_schema_1.ConfigSchema({
-        "id_config": req.body.id_config,
-        "id_repositorio": req.body.id_repositorio,
-        "tipo_acceso": req.body.tipo_acceso,
-        "fecha_creacion": req.body.fecha_creacion,
-    });
-    p.save().then(saveResponse => {
-        res.send(saveResponse);
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al guardar', error });
-        res.end();
-    });
-};
+// Función para agregar un nuevo usuario
+const agregarConfig = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { ID_CONFIGURACION, ID_REPOSITORIO, TIPO_ACCESO, FECHA_CREACION } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`INSERT INTO C##GITHUB.TBL_CONFIG_ACCESO_REPOSITORIO 
+      (ID_CONFIGURACION, ID_REPOSITORIO, TIPO_ACCESO, FECHA_CREACION) 
+      VALUES 
+      (:ID_CONFIGURACION, :ID_REPOSITORIO, :TIPO_ACCESO, TO_DATE(:FECHA_CREACION, 'DD-MON-RR'))`, [ID_CONFIGURACION, ID_REPOSITORIO, TIPO_ACCESO, FECHA_CREACION]);
+        yield connection.commit();
+        yield connection.close();
+        res.status(201).send({ message: ' agregado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al agregar:', error);
+        res.status(500).send({ message: 'Error en el servidor al agregar' });
+    }
+});
 exports.agregarConfig = agregarConfig;
-const actualizarConfig = (req, res) => {
-    config_schema_1.ConfigSchema.updateOne({ id_config: req.params.id_config }, {
-        id_config: req.body.id_config,
-        id_repositorio: req.body.id_repositorio,
-        tipo_acceso: req.body.tipo_acceso,
-        fecha_creacion: req.body.fecha_creacion,
-    }).then(updateResponse => {
-        res.send({ message: 'actualizado', updateResponse });
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al actualizar', error });
-        res.end();
-    });
-};
+// Función para actualizar un usuario
+const actualizarConfig = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_configuracion } = req.params;
+    const { ID_REPOSITORIO, TIPO_ACCESO, FECHA_CREACION } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`UPDATE C##GITHUB.TBL_CONFIG_ACCESO_REPOSITORIO 
+      SET 
+          ID_REPOSITORIO = :ID_REPOSITORIO,
+          TIPO_ACCESO = :TIPO_ACCESO,
+          FECHA_CREACION = TO_DATE(:FECHA_CREACION, 'DD-MON-RR')
+      WHERE 
+          id_configuracion = :id_configuracion
+      `, [
+            ID_REPOSITORIO,
+            TIPO_ACCESO,
+            FECHA_CREACION,
+            id_configuracion
+        ]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: ' actualizado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al actualizar :', error);
+        res.status(500).send({ message: 'Error en el servidor al actualizar' });
+    }
+});
 exports.actualizarConfig = actualizarConfig;
-const eliminarConfig = (req, res) => {
-    config_schema_1.ConfigSchema.deleteOne({ id_config: req.params.id_config })
-        .then(removeResult => {
-        res.send({ message: 'eliminado', removeResult });
-        res.end();
-    });
-};
+// Función para eliminar un usuario
+const eliminarConfig = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_configuracion } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`DELETE FROM C##GITHUB.TBL_CONFIG_ACCESO_REPOSITORIO WHERE id_configuracion = :id_configuracion`, [id_configuracion]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'eliminado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al eliminar:', error);
+        res.status(500).send({ message: 'Error en el servidor al eliminar' });
+    }
+});
 exports.eliminarConfig = eliminarConfig;

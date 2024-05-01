@@ -10,63 +10,116 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eliminarFile_modif = exports.actualizarFile_modif = exports.agregarFile_modif = exports.obtenerFile_modifs = exports.obtenerFile_modif = void 0;
-const file_modif_schema_1 = require("../model/file_modif.schema");
-const obtenerFile_modif = (req, res) => {
-    file_modif_schema_1.File_modifSchema.findOne({ id_file_modif: req.params.id_file_modif }).then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
-};
+const oracledb = require('oracledb');
+const database_1 = require("../utils/database");
+// Función para obtener un usuario por su ID
+const obtenerFile_modif = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_modification } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_FILE_MODIF WHERE id_modification = :id_modification`, [id_modification]);
+        yield connection.close();
+        if (result.rows.length === 0) {
+            res.status(404).send({ message: ' no encontrado' });
+        }
+        else {
+            res.send(result.rows[0]);
+        }
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor' });
+    }
+});
 exports.obtenerFile_modif = obtenerFile_modif;
+// Función para obtener todos los usuarios
 const obtenerFile_modifs = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    file_modif_schema_1.File_modifSchema.find().then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_FILE_MODIF ORDER BY id_modification ASC`);
+        yield connection.close();
+        res.send(result.rows);
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener' });
+    }
 });
 exports.obtenerFile_modifs = obtenerFile_modifs;
-const agregarFile_modif = (req, res) => {
-    const p = new file_modif_schema_1.File_modifSchema({
-        "id_file_modif": req.body.id_file_modif,
-        "id_commit": req.body.id_commit,
-        "file_path": req.body.file_path,
-        "lines_added": req.body.lines_added,
-        "lines_deleted": req.body.lines_deleted,
-        "modif_type": req.body.modif_type
-    });
-    p.save().then(saveResponse => {
-        res.send(saveResponse);
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al guardar', error });
-        res.end();
-    });
-};
+// Función para agregar un nuevo usuario
+const agregarFile_modif = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { ID_MODIFICATION, ID_COMMIT, FILE_PATH, LINES_ADDED, LINES_DELETED, MODIF_TYPE } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`INSERT INTO C##GITHUB.TBL_FILE_MODIF 
+      (ID_MODIFICATION, ID_COMMIT, FILE_PATH, LINES_ADDED, LINES_DELETED, MODIF_TYPE) 
+      VALUES 
+      (:ID_MODIFICATION, :ID_COMMIT, :FILE_PATH, :LINES_ADDED, :LINES_DELETED, :MODIF_TYPE)`, [ID_MODIFICATION, ID_COMMIT, FILE_PATH, LINES_ADDED, LINES_DELETED, MODIF_TYPE]);
+        yield connection.commit();
+        yield connection.close();
+        res.status(201).send({ message: ' agregado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al agregar:', error);
+        res.status(500).send({ message: 'Error en el servidor al agregar' });
+    }
+});
 exports.agregarFile_modif = agregarFile_modif;
-const actualizarFile_modif = (req, res) => {
-    file_modif_schema_1.File_modifSchema.updateOne({ id_file_modif: req.params.id_file_modif }, {
-        id_file_modif: req.body.id_file_modif,
-        id_commit: req.body.id_commit,
-        file_path: req.body.file_path,
-        lines_added: req.body.lines_added,
-        lines_deleted: req.body.lines_deleted,
-        modif_type: req.body.modif_type
-    }).then(updateResponse => {
-        res.send({ message: 'actualizado', updateResponse });
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al actualizar', error });
-        res.end();
-    });
-};
+// Función para actualizar un usuario
+const actualizarFile_modif = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_modification } = req.params;
+    const { ID_COMMIT, FILE_PATH, LINES_ADDED, LINES_DELETED, MODIF_TYPE } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`UPDATE C##GITHUB.TBL_FILE_MODIF 
+      SET 
+          ID_COMMIT = :ID_COMMIT,
+          FILE_PATH = :FILE_PATH,
+          LINES_ADDED = :LINES_ADDED,
+          LINES_DELETED = :LINES_DELETED,
+          MODIF_TYPE = :MODIF_TYPE
+      WHERE 
+          id_modification = :id_modification`, [
+            ID_COMMIT,
+            FILE_PATH,
+            LINES_ADDED,
+            LINES_DELETED,
+            MODIF_TYPE,
+            id_modification
+        ]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: ' actualizado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al actualizar :', error);
+        res.status(500).send({ message: 'Error en el servidor al actualizar' });
+    }
+});
 exports.actualizarFile_modif = actualizarFile_modif;
-const eliminarFile_modif = (req, res) => {
-    file_modif_schema_1.File_modifSchema.deleteOne({ id_file_modif: req.params.id_file_modif })
-        .then(removeResult => {
-        res.send({ message: 'eliminado', removeResult });
-        res.end();
-    });
-};
+// Función para eliminar un usuario
+const eliminarFile_modif = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_modification } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`DELETE FROM C##GITHUB.TBL_FILE_MODIF WHERE id_modification = :id_modification`, [id_modification]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'eliminado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al eliminar:', error);
+        res.status(500).send({ message: 'Error en el servidor al eliminar' });
+    }
+});
 exports.eliminarFile_modif = eliminarFile_modif;

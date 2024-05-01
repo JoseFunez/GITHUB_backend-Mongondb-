@@ -10,63 +10,116 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eliminarContribuidor = exports.actualizarContribuidor = exports.agregarContribuidor = exports.obtenerContribuidores = exports.obtenerContribuidor = void 0;
-const contribuidores_schema_1 = require("../model/contribuidores.schema");
-const obtenerContribuidor = (req, res) => {
-    contribuidores_schema_1.ContribuidoresSchema.findOne({ id_contribuidor: req.params.id_contribuidor }).then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
-};
+const oracledb = require('oracledb');
+const database_1 = require("../utils/database");
+// Función para obtener un usuario por su ID
+const obtenerContribuidor = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_contribuidor } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_CONTRIBUIDORES WHERE id_contribuidor = :id_contribuidor`, [id_contribuidor]);
+        yield connection.close();
+        if (result.rows.length === 0) {
+            res.status(404).send({ message: ' no encontrado' });
+        }
+        else {
+            res.send(result.rows[0]);
+        }
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor' });
+    }
+});
 exports.obtenerContribuidor = obtenerContribuidor;
+// Función para obtener todos los usuarios
 const obtenerContribuidores = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    contribuidores_schema_1.ContribuidoresSchema.find().then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_CONTRIBUIDORES ORDER BY id_contribuidor ASC`);
+        yield connection.close();
+        res.send(result.rows);
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener' });
+    }
 });
 exports.obtenerContribuidores = obtenerContribuidores;
-const agregarContribuidor = (req, res) => {
-    const p = new contribuidores_schema_1.ContribuidoresSchema({
-        "id_contribuidor": req.body.id_contribuidor,
-        "id_usuario": req.body.id_usuario,
-        "id_repositorio": req.body.id_repositorio,
-        "cantidad_contribuciones": req.body.cantidad_contribuciones,
-        "date_first_ctrb": req.body.date_first_ctrb,
-        "date_last_ctrb": req.body.date_last_ctrb
-    });
-    p.save().then(saveResponse => {
-        res.send(saveResponse);
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al guardar', error });
-        res.end();
-    });
-};
+// Función para agregar un nuevo usuario
+const agregarContribuidor = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { ID_CONTRIBUIDOR, ID_USUARIO, ID_REPOSITORIO, CANTIDAD_CONTRIBUICIONES, DATE_FIRST_CTRB, DATE_LAST_CTRB } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`INSERT INTO C##GITHUB.TBL_CONTRIBUIDORES 
+      (ID_CONTRIBUIDOR, ID_USUARIO, ID_REPOSITORIO, CANTIDAD_CONTRIBUICIONES, DATE_FIRST_CTRB, DATE_LAST_CTRB) 
+      VALUES 
+      (:ID_CONTRIBUIDOR, :ID_USUARIO, :ID_REPOSITORIO, :CANTIDAD_CONTRIBUICIONES, TO_DATE(:DATE_FIRST_CTRB, 'DD-MON-RR'), TO_DATE(:DATE_LAST_CTRB, 'DD-MON-RR'))`, [ID_CONTRIBUIDOR, ID_USUARIO, ID_REPOSITORIO, CANTIDAD_CONTRIBUICIONES, DATE_FIRST_CTRB, DATE_LAST_CTRB]);
+        yield connection.commit();
+        yield connection.close();
+        res.status(201).send({ message: ' agregado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al agregar:', error);
+        res.status(500).send({ message: 'Error en el servidor al agregar' });
+    }
+});
 exports.agregarContribuidor = agregarContribuidor;
-const actualizarContribuidor = (req, res) => {
-    contribuidores_schema_1.ContribuidoresSchema.updateOne({ id_contribuidor: req.params.id_contribuidor }, {
-        id_contribuidor: req.body.id_contribuidor,
-        id_usuario: req.body.id_usuario,
-        id_repositorio: req.body.id_repositorio,
-        cantidad_contribuciones: req.body.cantidad_contribuciones,
-        date_first_ctrb: req.body.date_first_ctrb,
-        date_last_ctrb: req.body.date_last_ctrb
-    }).then(updateResponse => {
-        res.send({ message: 'actualizado', updateResponse });
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al actualizar', error });
-        res.end();
-    });
-};
+// Función para actualizar un usuario
+const actualizarContribuidor = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_contribuidor } = req.params;
+    const { ID_USUARIO, ID_REPOSITORIO, CANTIDAD_CONTRIBUICIONES, DATE_FIRST_CTRB, DATE_LAST_CTRB } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`UPDATE C##GITHUB.TBL_CONTRIBUIDORES 
+      SET 
+          ID_USUARIO = :ID_USUARIO,
+          ID_REPOSITORIO = :ID_REPOSITORIO,
+          CANTIDAD_CONTRIBUICIONES = :CANTIDAD_CONTRIBUICIONES,
+          DATE_FIRST_CTRB = TO_DATE(:DATE_FIRST_CTRB, 'DD-MON-RR'),
+          DATE_LAST_CTRB = TO_DATE(:DATE_LAST_CTRB, 'DD-MON-RR')
+      WHERE 
+          id_contribuidor = :id_contribuidor`, [
+            ID_USUARIO,
+            ID_REPOSITORIO,
+            CANTIDAD_CONTRIBUICIONES,
+            DATE_FIRST_CTRB,
+            DATE_LAST_CTRB,
+            id_contribuidor
+        ]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: ' actualizado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al actualizar :', error);
+        res.status(500).send({ message: 'Error en el servidor al actualizar' });
+    }
+});
 exports.actualizarContribuidor = actualizarContribuidor;
-const eliminarContribuidor = (req, res) => {
-    contribuidores_schema_1.ContribuidoresSchema.deleteOne({ id_contribuidor: req.params.id_contribuidor })
-        .then(removeResult => {
-        res.send({ message: 'eliminado', removeResult });
-        res.end();
-    });
-};
+// Función para eliminar un usuario
+const eliminarContribuidor = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_contribuidor } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`DELETE FROM C##GITHUB.TBL_CONTRIBUIDORES WHERE id_contribuidor = :id_contribuidor`, [id_contribuidor]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'eliminado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al eliminar:', error);
+        res.status(500).send({ message: 'Error en el servidor al eliminar' });
+    }
+});
 exports.eliminarContribuidor = eliminarContribuidor;

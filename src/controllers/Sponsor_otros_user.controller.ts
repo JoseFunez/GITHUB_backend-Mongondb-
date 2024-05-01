@@ -1,64 +1,127 @@
 import {Request, Response} from 'express';
-import { Sponsor_otros_userSchema } from '../model/sponsor_otros_user.schema';
+const oracledb = require('oracledb');
+import { connectToDB, closeDB } from '../utils/database';
 
 
-export const obtenerSponsor_otros_user = (req: Request, res: Response) => {
-    Sponsor_otros_userSchema.findOne({id_sponsor_otros_user: req.params.id_sponsor_otros_user}).then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error));
-}
 
+// Función para obtener un usuario por su ID
+export const obtenerSponsor_otros_user = async (req: Request, res: Response) => {
+  const { id_sponsor_otros } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_SPONSOR_OTROS_USERS WHERE id_sponsor_otros = :id_sponsor_otros`, [id_sponsor_otros]);
+    await connection.close();
+
+    if (result.rows.length === 0) {
+      res.status(404).send({ message: ' no encontrado' });
+    } else {
+      res.send(result.rows[0]);
+    }
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor' });
+  }
+};
+
+// Función para obtener todos los usuarios
 export const obtenerSponsor_otros_users = async (req: Request, res: Response) => {
-    Sponsor_otros_userSchema.find().then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error))
-} 
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_SPONSOR_OTROS_USERS ORDER BY id_sponsor_otros ASC`);
+    await connection.close();
 
-export const agregarSponsor_otros_user = (req:Request, res:Response)=> {
-    const p = new Sponsor_otros_userSchema(
-        {
+    res.send(result.rows);
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor al obtener' });
+  }
+};
 
-            "id_sponsor_otros_user": req.body.id_sponsor_otros_user,
-            "id_proyecto": req.body.id_proyecto,
-            "lista_sponsor": req.body.lista_sponsor,
-            "fecha_creacion": req.body.fecha_creacion
-            
-          });
-          p.save().then(saveResponse=>{
-            res.send(saveResponse);
-            res.end();
-          }).catch(error=>{
-            res.send({message:'hubo un error al guardar', error});
-            res.end();
-          });
+// Función para agregar un nuevo usuario
+export const agregarSponsor_otros_user = async (req: Request, res: Response) => {
+  const {ID_SPONSOR_OTROS,ID_PROYECTO,LISTA_SPONSOR} = req.body;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
+
+      `INSERT INTO C##GITHUB.TBL_SPONSOR_OTROS_USERS
+      (ID_SPONSOR_OTROS, ID_PROYECTO, LISTA_SPONSOR) 
+      VALUES 
+      (:ID_SPONSOR_OTROS, :ID_PROYECTO, :LISTA_SPONSOR)
+      `, 
+       [ID_SPONSOR_OTROS,ID_PROYECTO,LISTA_SPONSOR]
+      );
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send({ message: ' agregado exitosamente' });
+  } catch (error) {
+    console.error('Error al agregar:', error);
+    res.status(500).send({ message: 'Error en el servidor al agregar' });
   }
-  
-  export const actualizarSponsor_otros_user = (req:Request, res:Response)=> {
-    Sponsor_otros_userSchema.updateOne({id_sponsor_otros_user: req.params.id_sponsor_otros_user}, {
-        
-        id_sponsor_otros_user: req.body.id_sponsor_otros_user,
-        id_proyecto: req.body.id_proyecto,
-        lista_sponsor: req.body.lista_sponsor,
-        fecha_creacion: req.body.fecha_creacion
-  
-    }).then(updateResponse=>{
-        res.send({message:'actualizado',updateResponse});
-        res.end();
-      }).catch(error=>{
-        res.send({message:'hubo un error al actualizar', error});
-        res.end();
-      });
+};
+
+
+// Función para actualizar un usuario
+export const actualizarSponsor_otros_user = async (req: Request, res: Response) => {
+  const { id_sponsor_otros } = req.params;
+  const {
+         ID_PROYECTO,
+         LISTA_SPONSOR
+  } = req.body;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
+
+      `UPDATE C##GITHUB.TBL_SPONSOR_OTROS_USERS 
+      SET 
+          ID_PROYECTO = :ID_PROYECTO,
+          LISTA_SPONSOR = :LISTA_SPONSOR
+      WHERE 
+          id_sponsor_otros = :id_sponsor_otros`, 
+           [
+            ID_PROYECTO,
+            LISTA_SPONSOR,
+            id_sponsor_otros
+           ]
+      );
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: ' actualizado exitosamente' });
+  } catch (error) {
+    console.error('Error al actualizar :', error);
+    res.status(500).send({ message: 'Error en el servidor al actualizar' });
   }
-  
-  export const eliminarSponsor_otros_user = (req:Request, res:Response)=> {
-    Sponsor_otros_userSchema.deleteOne({id_sponsor_otros_user: req.params.id_sponsor_otros_user})
-    .then(removeResult=>{
-        res.send({message:'eliminado', removeResult});
-        res.end();
-    });
+};
+
+
+// Función para eliminar un usuario
+export const eliminarSponsor_otros_user = async (req: Request, res: Response) => {
+  const { id_sponsor_otros } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(`DELETE FROM C##GITHUB.TBL_SPONSOR_OTROS_USERS WHERE id_sponsor_otros = :id_sponsor_otros`, [id_sponsor_otros]);
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: 'eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar:', error);
+    res.status(500).send({ message: 'Error en el servidor al eliminar' });
   }
-  
+};

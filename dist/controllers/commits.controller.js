@@ -10,63 +10,118 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eliminarCommit = exports.actualizarCommit = exports.agregarCommit = exports.obtenerCommits = exports.obtenerCommit = void 0;
-const commits_schema_1 = require("../model/commits.schema");
-const obtenerCommit = (req, res) => {
-    commits_schema_1.CommitsSchema.findOne({ id_commit: req.params.id_commit }).then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
-};
+const oracledb = require('oracledb');
+const database_1 = require("../utils/database");
+// Función para obtener un usuario por su ID
+const obtenerCommit = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_commit } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_COMMITS WHERE id_commit = :id_commit`, [id_commit]);
+        yield connection.close();
+        if (result.rows.length === 0) {
+            res.status(404).send({ message: ' no encontrado' });
+        }
+        else {
+            res.send(result.rows[0]);
+        }
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor' });
+    }
+});
 exports.obtenerCommit = obtenerCommit;
+// Función para obtener todos los usuarios
 const obtenerCommits = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    commits_schema_1.CommitsSchema.find().then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_COMMITS ORDER BY id_commit ASC`);
+        yield connection.close();
+        res.send(result.rows);
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener' });
+    }
 });
 exports.obtenerCommits = obtenerCommits;
-const agregarCommit = (req, res) => {
-    const p = new commits_schema_1.CommitsSchema({
-        "id_commit": req.body.id_commit,
-        "id_usuario": req.body.id_usuario,
-        "id_repositorio": req.body.id_repositorio,
-        "commit_message": req.body.commit_message,
-        "commit_date": req.body.commit_date,
-        "changes_count": req.body.changes_count
-    });
-    p.save().then(saveResponse => {
-        res.send(saveResponse);
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al guardar', error });
-        res.end();
-    });
-};
+// Función para agregar un nuevo usuario
+const agregarCommit = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { ID_COMMIT, ID_USUARIO, ID_REPOSITORIO, COMMIT_MESSAGE, COMMIT_DATE, CHANGES_COUNT } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`INSERT INTO C##GITHUB.TBL_COMMITS 
+      (ID_COMMIT, ID_USUARIO, ID_REPOSITORIO, COMMIT_MESSAGE, COMMIT_DATE, CHANGES_COUNT) 
+      VALUES 
+      (:ID_COMMIT, :ID_USUARIO, :ID_REPOSITORIO, :COMMIT_MESSAGE, TO_DATE(:COMMIT_DATE, 'DD-MON-RR'), :CHANGES_COUNT)
+      `, [ID_COMMIT, ID_USUARIO, ID_REPOSITORIO, COMMIT_MESSAGE, COMMIT_DATE, CHANGES_COUNT]);
+        yield connection.commit();
+        yield connection.close();
+        res.status(201).send({ message: ' agregado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al agregar:', error);
+        res.status(500).send({ message: 'Error en el servidor al agregar' });
+    }
+});
 exports.agregarCommit = agregarCommit;
-const actualizarCommit = (req, res) => {
-    commits_schema_1.CommitsSchema.updateOne({ id_commit: req.params.id_commit }, {
-        id_commit: req.body.id_commit,
-        id_usuario: req.body.id_usuario,
-        id_repositorio: req.body.id_repositorio,
-        commit_message: req.body.commit_message,
-        commit_date: req.body.commit_date,
-        changes_count: req.body.changes_count
-    }).then(updateResponse => {
-        res.send({ message: 'actualizado', updateResponse });
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al actualizar', error });
-        res.end();
-    });
-};
+// Función para actualizar un usuario
+const actualizarCommit = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_commit } = req.params;
+    const { ID_USUARIO, ID_REPOSITORIO, COMMIT_MESSAGE, COMMIT_DATE, CHANGES_COUNT } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`UPDATE C##GITHUB.TBL_COMMITS 
+      SET 
+          ID_USUARIO = :ID_USUARIO,
+          ID_REPOSITORIO = :ID_REPOSITORIO,
+          COMMIT_MESSAGE = :COMMIT_MESSAGE,
+          COMMIT_DATE = TO_DATE(:COMMIT_DATE, 'DD-MON-RR'),
+          CHANGES_COUNT = :CHANGES_COUNT
+      WHERE 
+          id_commit = :id_commit
+      `, [
+            ID_USUARIO,
+            ID_REPOSITORIO,
+            COMMIT_MESSAGE,
+            COMMIT_DATE,
+            CHANGES_COUNT,
+            id_commit
+        ]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: ' actualizado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al actualizar :', error);
+        res.status(500).send({ message: 'Error en el servidor al actualizar' });
+    }
+});
 exports.actualizarCommit = actualizarCommit;
-const eliminarCommit = (req, res) => {
-    commits_schema_1.CommitsSchema.deleteOne({ id_commit: req.params.id_commit })
-        .then(removeResult => {
-        res.send({ message: 'eliminado', removeResult });
-        res.end();
-    });
-};
+// Función para eliminar un usuario
+const eliminarCommit = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_commit } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`DELETE FROM C##GITHUB.TBL_COMMITS WHERE id_commit = :id_commit`, [id_commit]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'eliminado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al eliminar:', error);
+        res.status(500).send({ message: 'Error en el servidor al eliminar' });
+    }
+});
 exports.eliminarCommit = eliminarCommit;

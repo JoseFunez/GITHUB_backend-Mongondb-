@@ -3,14 +3,14 @@ import {obtenerConfig, obtenerConfigs, agregarConfig, actualizarConfig, eliminar
 
 const router = express.Router();
 
-router.get('/:id_config', obtenerConfig);
+router.get('/:id_configuracion', obtenerConfig);
 
 router.get('/', obtenerConfigs);
 
 router.post('/', agregarConfig);
 
-router.put('/:id_config', actualizarConfig);
+router.put('/:id_configuracion', actualizarConfig);
 
-router.delete('/:id_config', eliminarConfig);
+router.delete('/:id_configuracion', eliminarConfig);
 
 export default router;

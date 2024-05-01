@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -36,10 +45,11 @@ const discuss_coment_router_1 = __importDefault(require("./routers/discuss_comen
 const stars_router_1 = __importDefault(require("./routers/stars.router"));
 const commits_router_1 = __importDefault(require("./routers/commits.router"));
 const file_modif_router_1 = __importDefault(require("./routers/file_modif.router"));
+//import { Database } from './utils/database';
 const database_1 = require("./utils/database");
 const cors_1 = __importDefault(require("cors"));
 dotenv_1.default.config();
-const database = new database_1.Database();
+//const database:Database = new Database(); 
 const app = (0, express_1.default)();
 const port = process.env.PORT;
 app.use((0, cors_1.default)());
@@ -79,7 +89,18 @@ app.use(express_1.default.urlencoded({ extended: true }));
 app.get('/', (req, res) => {
     res.send('el backend del proyectoo, que onda');
 });
-app.listen(port, () => {
+app.listen(port, () => __awaiter(void 0, void 0, void 0, function* () {
     console.log(`⚡️servidor levantado http://localhost:${port}`);
     console.log('que onda mi ing');
-});
+    yield (0, database_1.connectToDB)();
+}));
+// Manejar cierre del servidor
+/*process.on('SIGINT', async () => {
+  await closeDB(); // Cerrar conexión con la base de datos Oracle
+  console.log('Servidor Express cerrado y conexión con la base de datos Oracle cerrada.');
+  process.exit();
+});*/
+/*app.listen(port, () => {
+  console.log(`⚡️servidor levantado http://localhost:${port}`);
+  console.log('que onda mi ing');
+});*/

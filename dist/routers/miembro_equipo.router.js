@@ -9,6 +9,6 @@ const router = express_1.default.Router();
 router.get('/:id_miembro', miembro_equipo_controller_1.obtenerMiembro_equipo);
 router.get('/', miembro_equipo_controller_1.obtenerMiembro_equipos);
 router.post('/', miembro_equipo_controller_1.agregarMiembro_equipo);
-router.put('/:idmiembrot', miembro_equipo_controller_1.actualizarMiembro_equipo);
+router.put('/:id_miembro', miembro_equipo_controller_1.actualizarMiembro_equipo);
 router.delete('/:id_miembro', miembro_equipo_controller_1.eliminarMiembro_equipo);
 exports.default = router;

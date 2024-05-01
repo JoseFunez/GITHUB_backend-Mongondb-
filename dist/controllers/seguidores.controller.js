@@ -9,45 +9,115 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.eliminarSeguidor = exports.agregarSeguidor = exports.obtenerSeguidores = exports.obtenerSeguidor = void 0;
-const seguidores_schema_1 = require("../model/seguidores.schema");
-const obtenerSeguidor = (req, res) => {
-    seguidores_schema_1.SeguidoresSchema.findOne({ id_seguidor: req.params.id_seguidor }).then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
-};
+exports.eliminarSeguidor = exports.actualizarSeguidor = exports.agregarSeguidor = exports.obtenerSeguidores = exports.obtenerSeguidor = void 0;
+const oracledb = require('oracledb');
+const database_1 = require("../utils/database");
+// Función para obtener un usuario por su ID
+const obtenerSeguidor = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_seguidor } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_SEGUIDORES WHERE id_seguidor = :id_seguidor`, [id_seguidor]);
+        yield connection.close();
+        if (result.rows.length === 0) {
+            res.status(404).send({ message: ' no encontrado' });
+        }
+        else {
+            res.send(result.rows[0]);
+        }
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor' });
+    }
+});
 exports.obtenerSeguidor = obtenerSeguidor;
+// Función para obtener todos los usuarios
 const obtenerSeguidores = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    seguidores_schema_1.SeguidoresSchema.find().then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_SEGUIDORES ORDER BY id_seguidor ASC`);
+        yield connection.close();
+        res.send(result.rows);
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener' });
+    }
 });
 exports.obtenerSeguidores = obtenerSeguidores;
-const agregarSeguidor = (req, res) => {
-    const p = new seguidores_schema_1.SeguidoresSchema({
-        "id_seguidor": req.body.id_seguidor,
-        "id_usuario": req.body.id_usuario,
-        "fecha_seguimiento": req.body.fecha_seguimiento,
-        "visibilidad": req.body.visibilidad
-    });
-    p.save().then(saveResponse => {
-        res.send(saveResponse);
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al guardar', error });
-        res.end();
-    });
-};
+// Función para agregar un nuevo usuario
+const agregarSeguidor = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { ID_SEGUIDOR, ID_USUARIO, FECHA_SEGUIDO, VISIBILIDAD } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`INSERT INTO C##GITHUB.TBL_SEGUIDORES 
+      (ID_SEGUIDOR, ID_USUARIO, FECHA_SEGUIDO, VISIBILIDAD) 
+      VALUES 
+      (:ID_SEGUIDOR, :ID_USUARIO, TO_DATE(:FECHA_SEGUIDO, 'DD-MON-RR'), :VISIBILIDAD)
+      `, [ID_SEGUIDOR, ID_USUARIO, FECHA_SEGUIDO, VISIBILIDAD]);
+        yield connection.commit();
+        yield connection.close();
+        res.status(201).send({ message: ' agregado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al agregar:', error);
+        res.status(500).send({ message: 'Error en el servidor al agregar' });
+    }
+});
 exports.agregarSeguidor = agregarSeguidor;
-const eliminarSeguidor = (req, res) => {
-    seguidores_schema_1.SeguidoresSchema.deleteOne({ id_seguidor: req.params.id_seguidor })
-        .then(removeResult => {
-        res.send({ message: 'eliminado', removeResult });
-        res.end();
-    });
-};
+// Función para actualizar un usuario
+const actualizarSeguidor = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_seguidor } = req.params;
+    const { ID_USUARIO, FECHA_SEGUIDO, VISIBILIDAD } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`UPDATE C##GITHUB.TBL_SEGUIDORES 
+      SET 
+          ID_USUARIO = :ID_USUARIO
+          FECHA_SEGUIDO = TO_DATE(:FECHA_SEGUIDO, 'DD-MON-RR'),
+          VISIBILIDAD = :VISIBILIDAD
+      WHERE 
+          id_seguidor = :id_seguidor
+      `, [
+            ID_USUARIO,
+            FECHA_SEGUIDO,
+            VISIBILIDAD,
+            id_seguidor
+        ]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: ' actualizado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al actualizar :', error);
+        res.status(500).send({ message: 'Error en el servidor al actualizar' });
+    }
+});
+exports.actualizarSeguidor = actualizarSeguidor;
+// Función para eliminar un usuario
+const eliminarSeguidor = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_seguidor } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`DELETE FROM C##GITHUB.TBL_SEGUIDORES WHERE id_seguidor = :id_seguidor`, [id_seguidor]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'eliminado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al eliminar:', error);
+        res.status(500).send({ message: 'Error en el servidor al eliminar' });
+    }
+});
 exports.eliminarSeguidor = eliminarSeguidor;

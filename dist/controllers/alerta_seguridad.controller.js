@@ -10,61 +10,115 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eliminarAlerta = exports.actualizarAlerta = exports.agregarAlerta = exports.obtenerAlertas = exports.obtenerAlerta = void 0;
-const alerta_seguridad_schema_1 = require("../model/alerta_seguridad.schema");
-const obtenerAlerta = (req, res) => {
-    alerta_seguridad_schema_1.Alerta_seguridadSchema.findOne({ id_alerta: req.params.id_alerta }).then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
-};
+const oracledb = require('oracledb');
+const database_1 = require("../utils/database");
+// Función para obtener un usuario por su ID
+const obtenerAlerta = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_alerta } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_ALERTA_SEGURIDAD WHERE id_alerta = :id_alerta`, [id_alerta]);
+        yield connection.close();
+        if (result.rows.length === 0) {
+            res.status(404).send({ message: ' no encontrado' });
+        }
+        else {
+            res.send(result.rows[0]);
+        }
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor' });
+    }
+});
 exports.obtenerAlerta = obtenerAlerta;
+// Función para obtener todos los usuarios
 const obtenerAlertas = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    alerta_seguridad_schema_1.Alerta_seguridadSchema.find().then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_ALERTA_SEGURIDAD ORDER BY id_alerta ASC`);
+        yield connection.close();
+        res.send(result.rows);
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener' });
+    }
 });
 exports.obtenerAlertas = obtenerAlertas;
-const agregarAlerta = (req, res) => {
-    const p = new alerta_seguridad_schema_1.Alerta_seguridadSchema({
-        "id_alerta": req.body.id_alerta,
-        "id_repositorio": req.body.id_repositorio,
-        "descripcion": req.body.descripcion,
-        "gravedad": req.body.gravedad,
-        "fecha_creacion": req.body.fecha_creacion
-    });
-    p.save().then(saveResponse => {
-        res.send(saveResponse);
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al guardar', error });
-        res.end();
-    });
-};
+// Función para agregar un nuevo usuario
+const agregarAlerta = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { ID_ALERTA, ID_REPOSITORIO, DESCRIPCION, GRAVEDAD, FECHA_CREACION } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`INSERT INTO C##GITHUB.TBL_ALERTA_SEGURIDAD 
+      (ID_ALERTA, ID_REPOSITORIO, DESCRIPCION, GRAVEDAD, FECHA_CREACION) 
+      VALUES 
+      (:ID_ALERTA, :ID_REPOSITORIO, :DESCRIPCION, :GRAVEDAD, TO_DATE(:FECHA_CREACION, 'DD-MON-RR'))`, [ID_ALERTA, ID_REPOSITORIO, DESCRIPCION, GRAVEDAD, FECHA_CREACION]);
+        yield connection.commit();
+        yield connection.close();
+        res.status(201).send({ message: ' agregado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al agregar:', error);
+        res.status(500).send({ message: 'Error en el servidor al agregar' });
+    }
+});
 exports.agregarAlerta = agregarAlerta;
-const actualizarAlerta = (req, res) => {
-    alerta_seguridad_schema_1.Alerta_seguridadSchema.updateOne({ id_alerta: req.params.id_alerta }, {
-        id_alerta: req.body.id_alerta,
-        id_repositorio: req.body.id_repositorio,
-        descripcion: req.body.descripcion,
-        gravedad: req.body.gravedad,
-        fecha_creacion: req.body.fecha_creacion
-    }).then(updateResponse => {
-        res.send({ message: 'actualizado', updateResponse });
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al actualizar', error });
-        res.end();
-    });
-};
+// Función para actualizar un usuario
+const actualizarAlerta = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_alerta } = req.params;
+    const { ID_REPOSITORIO, DESCRIPCION, GRAVEDAD, FECHA_CREACION } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`UPDATE C##GITHUB.TBL_ALERTA_SEGURIDAD 
+      SET 
+          ID_REPOSITORIO = :ID_REPOSITORIO,
+          DESCRIPCION = :DESCRIPCION,
+          GRAVEDAD = :GRAVEDAD,
+          FECHA_CREACION = TO_DATE(:FECHA_CREACION, 'DD-MON-RR')
+      WHERE 
+          id_alerta = :id_alerta
+      `, [
+            ID_REPOSITORIO,
+            DESCRIPCION,
+            GRAVEDAD,
+            FECHA_CREACION,
+            id_alerta
+        ]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: ' actualizado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al actualizar :', error);
+        res.status(500).send({ message: 'Error en el servidor al actualizar' });
+    }
+});
 exports.actualizarAlerta = actualizarAlerta;
-const eliminarAlerta = (req, res) => {
-    alerta_seguridad_schema_1.Alerta_seguridadSchema.deleteOne({ id_alerta: req.params.id_alerta })
-        .then(removeResult => {
-        res.send({ message: 'eliminado', removeResult });
-        res.end();
-    });
-};
+// Función para eliminar un usuario
+const eliminarAlerta = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_alerta } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`DELETE FROM C##GITHUB.TBL_ALERTA_SEGURIDAD WHERE id_alerta = :id_alerta`, [id_alerta]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'eliminado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al eliminar:', error);
+        res.status(500).send({ message: 'Error en el servidor al eliminar' });
+    }
+});
 exports.eliminarAlerta = eliminarAlerta;

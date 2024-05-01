@@ -1,71 +1,144 @@
 import {Request, Response} from 'express';
-import { LabelsSchema } from '../model/labels.schema';
+const oracledb = require('oracledb');
+import { connectToDB, closeDB } from '../utils/database';
 
 
-export const obtenerLabel = (req: Request, res: Response) => {
-    LabelsSchema.findOne({id_label: req.params.id_label}).then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error));
-}
 
+// Función para obtener un usuario por su ID
+export const obtenerLabel = async (req: Request, res: Response) => {
+  const { id_label } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_LABELS WHERE id_label = :id_label`, [id_label]);
+    await connection.close();
+
+    if (result.rows.length === 0) {
+      res.status(404).send({ message: ' no encontrado' });
+    } else {
+      res.send(result.rows[0]);
+    }
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor' });
+  }
+};
+
+// Función para obtener todos los usuarios
 export const obtenerLabels = async (req: Request, res: Response) => {
-    LabelsSchema.find().then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error))
-}
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_LABELS ORDER BY id_label ASC`);
+    await connection.close();
 
-export const agregarLabel = (req:Request, res:Response)=> {
-  const p = new LabelsSchema(
-      {
-          "id_label": req.body.id_label,
-          "id_repositorio" : req.body.id_repositorio,
-          "nombre": req.body.nombre,
-          "descripcion": req.body.descripcion,
-          "fecha_creacion": req.body.fecha_creacion,
-          "fecha_ultima_actualizacion": req.body.fecha_ultima_actualizacion,
-          "nivel_prioridad": req.body.nivel_prioridad,
-          "restricciones": req.body.restricciones,
-          "scope": req.body.scope
-        });
-        p.save().then(saveResponse=>{
-          res.send(saveResponse);
-          res.end();
-        }).catch(error=>{
-          res.send({message:'hubo un error al guardar', error});
-          res.end();
-        });
-}
+    res.send(result.rows);
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor al obtener' });
+  }
+};
 
-export const actualizarLabel = (req:Request, res:Response)=> {
-    LabelsSchema.updateOne({id_label: req.params.id_label}, {
-      
-      id_label: req.body.id_label,
-      id_repositorio : req.body.id_repositorio,
-      nombre: req.body.nombre,
-      descripcion: req.body.descripcion,
-      fecha_creacion: req.body.fecha_creacion,
-      fecha_ultima_actualizacion: req.body.fecha_ultima_actualizacion,
-      nivel_prioridad: req.body.nivel_prioridad,
-      restricciones: req.body.restricciones,
-      scope: req.body.scope
+// Función para agregar un nuevo usuario
+export const agregarLabel = async (req: Request, res: Response) => {
+  const {ID_LABEL,ID_REPOSITORIO,NOMBRE,DESCRPTION,FECHA_CREACION,FECHA_ULT_ACT,NIVEL_PRIORIDAD,RESTRCCIONES,SCOPE} = req.body;
 
-  }).then(updateResponse=>{
-      res.send({message:'actualizado',updateResponse});
-      res.end();
-    }).catch(error=>{
-      res.send({message:'hubo un error al actualizar', error});
-      res.end();
-    });
-}
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
 
-export const eliminarLabel = (req:Request, res:Response)=> {
-    LabelsSchema.deleteOne({id_label: req.params.id_label})
-  .then(removeResult=>{
-      res.send({message:'eliminado', removeResult});
-      res.end();
-  });
-}
+      `INSERT INTO C##GITHUB.TBL_LABELS 
+      (ID_LABEL, ID_REPOSITORIO, NOMBRE, DESCRPTION, FECHA_CREACION, FECHA_ULT_ACT, NIVEL_PRIORIDAD, RESTRCCIONES, SCOPE) 
+      VALUES 
+      (:ID_LABEL, :ID_REPOSITORIO, :NOMBRE, :DESCRPTION, TO_DATE(:FECHA_CREACION, 'DD-MON-RR'), TO_DATE(:FECHA_ULT_ACT, 'DD-MON-RR'), :NIVEL_PRIORIDAD, :RESTRCCIONES, :SCOPE)`, 
+       [ID_LABEL,ID_REPOSITORIO,NOMBRE,DESCRPTION,FECHA_CREACION,FECHA_ULT_ACT,NIVEL_PRIORIDAD,RESTRCCIONES,SCOPE]
+      );
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send({ message: ' agregado exitosamente' });
+  } catch (error) {
+    console.error('Error al agregar:', error);
+    res.status(500).send({ message: 'Error en el servidor al agregar' });
+  }
+};
+
+
+// Función para actualizar un usuario
+export const actualizarLabel = async (req: Request, res: Response) => {
+  const { id_label } = req.params;
+  const {
+         ID_REPOSITORIO,
+         NOMBRE,
+         DESCRPTION,
+         FECHA_CREACION,
+         FECHA_ULT_ACT,
+         NIVEL_PRIORIDAD,
+         RESTRCCIONES,
+         SCOPE
+  } = req.body;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
+
+      `UPDATE C##GITHUB.TBL_LABELS 
+      SET 
+          ID_REPOSITORIO = :ID_REPOSITORIO,
+          NOMBRE = :NOMBRE,
+          DESCRPTION = :DESCRPTION,
+          FECHA_CREACION = TO_DATE(:FECHA_CREACION, 'DD-MON-RR'),
+          FECHA_ULT_ACT = TO_DATE(:FECHA_ULT_ACT, 'DD-MON-RR'),
+          NIVEL_PRIORIDAD = :NIVEL_PRIORIDAD,
+          RESTRCCIONES = :RESTRCCIONES,
+          SCOPE = :SCOPE
+      WHERE 
+          id_label = :id_label`, 
+           [
+            ID_REPOSITORIO,
+            NOMBRE,
+            DESCRPTION,
+            FECHA_CREACION,
+            FECHA_ULT_ACT,
+            NIVEL_PRIORIDAD,
+            RESTRCCIONES,
+            SCOPE,
+            id_label
+           ]
+      );
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: ' actualizado exitosamente' });
+  } catch (error) {
+    console.error('Error al actualizar :', error);
+    res.status(500).send({ message: 'Error en el servidor al actualizar' });
+  }
+};
+
+
+// Función para eliminar un usuario
+export const eliminarLabel = async (req: Request, res: Response) => {
+  const { id_label } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(`DELETE FROM C##GITHUB.TBL_LABELS WHERE id_label = :id_label`, [id_label]);
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: 'eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar:', error);
+    res.status(500).send({ message: 'Error en el servidor al eliminar' });
+  }
+};

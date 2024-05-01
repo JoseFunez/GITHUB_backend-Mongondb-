@@ -10,65 +10,120 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eliminarColaborador = exports.actualizarColaborador = exports.agregarColaborador = exports.obtenerColaboradores = exports.obtenerColaborador = void 0;
-const colaboradores_schema_1 = require("../model/colaboradores.schema");
-const obtenerColaborador = (req, res) => {
-    colaboradores_schema_1.ColaboradoresSchema.findOne({ id_colaborador: req.params.id_colaborador }).then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
-};
+const oracledb = require('oracledb');
+const database_1 = require("../utils/database");
+// Función para obtener un usuario por su ID
+const obtenerColaborador = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_colaborador } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_COLABORADORES WHERE id_colaborador = :id_colaborador`, [id_colaborador]);
+        yield connection.close();
+        if (result.rows.length === 0) {
+            res.status(404).send({ message: ' no encontrado' });
+        }
+        else {
+            res.send(result.rows[0]);
+        }
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor' });
+    }
+});
 exports.obtenerColaborador = obtenerColaborador;
+// Función para obtener todos los usuarios
 const obtenerColaboradores = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    colaboradores_schema_1.ColaboradoresSchema.find().then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_COLABORADORES ORDER BY id_colaborador ASC`);
+        yield connection.close();
+        res.send(result.rows);
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener' });
+    }
 });
 exports.obtenerColaboradores = obtenerColaboradores;
-const agregarColaborador = (req, res) => {
-    const p = new colaboradores_schema_1.ColaboradoresSchema({
-        "id_colaborador": req.body.id_colaborador,
-        "id_repositorio": req.body.id_repositorio,
-        "nivel_permiso": req.body.nivel_permiso,
-        "fecha_union": req.body.fecha_union,
-        "ultima_fecha_acceso": req.body.ultima_fecha_acceso,
-        "status": req.body.Status,
-        "comentarios": req.body.comentarios
-    });
-    p.save().then(saveResponse => {
-        res.send(saveResponse);
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al guardar', error });
-        res.end();
-    });
-};
+// Función para agregar un nuevo usuario
+const agregarColaborador = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { ID_COLABORADOR, ID_REPOSITORIO, NIVEL_PERMISO, FECHA_UNION, ULTIMA_FECHA_ACCESO, STATUS, COMENTARIOS } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`INSERT INTO C##GITHUB.TBL_COLABORADORES 
+      (ID_COLABORADOR, ID_REPOSITORIO, NIVEL_PERMISO, FECHA_UNION, ULTIMA_FECHA_ACCESO, STATUS, COMENTARIOS) 
+      VALUES 
+      (:ID_COLABORADOR, :ID_REPOSITORIO, :NIVEL_PERMISO, TO_DATE(:FECHA_UNION, 'DD-MON-RR'), TO_DATE(:ULTIMA_FECHA_ACCESO, 'DD-MON-RR'), :STATUS, :COMENTARIOS);
+      `, [ID_COLABORADOR, ID_REPOSITORIO, NIVEL_PERMISO, FECHA_UNION, ULTIMA_FECHA_ACCESO, STATUS, COMENTARIOS]);
+        yield connection.commit();
+        yield connection.close();
+        res.status(201).send({ message: ' agregado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al agregar:', error);
+        res.status(500).send({ message: 'Error en el servidor al agregar' });
+    }
+});
 exports.agregarColaborador = agregarColaborador;
-const actualizarColaborador = (req, res) => {
-    colaboradores_schema_1.ColaboradoresSchema.updateOne({ id_colaborador: req.params.id_colaborador }, {
-        id_colaborador: req.body.id_colaborador,
-        id_repositorio: req.body.id_repositorio,
-        nivel_permiso: req.body.nivel_permiso,
-        fecha_union: req.body.fecha_union,
-        ultima_fecha_acceso: req.body.ultima_fecha_acceso,
-        status: req.body.Status,
-        comentarios: req.body.comentarios,
-    }).then(updateResponse => {
-        res.send({ message: 'actualizado', updateResponse });
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al actualizar', error });
-        res.end();
-    });
-};
+// Función para actualizar un usuario
+const actualizarColaborador = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_colaborador } = req.params;
+    const { ID_REPOSITORIO, NIVEL_PERMISO, FECHA_UNION, ULTIMA_FECHA_ACCESO, STATUS, COMENTARIOS } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`UPDATE C##GITHUB.TBL_COLABORADORES 
+      SET 
+          ID_REPOSITORIO = :ID_REPOSITORIO,
+          NIVEL_PERMISO = :NIVEL_PERMISO,
+          FECHA_UNION = TO_DATE(:FECHA_UNION, 'DD-MON-RR'),
+          ULTIMA_FECHA_ACCESO = TO_DATE(:ULTIMA_FECHA_ACCESO, 'DD-MON-RR'),
+          STATUS = :STATUS,
+          COMENTARIOS = :COMENTARIOS
+      WHERE 
+          id_colaborador = :id_colaborador
+      `, [
+            ID_REPOSITORIO,
+            NIVEL_PERMISO,
+            FECHA_UNION,
+            ULTIMA_FECHA_ACCESO,
+            STATUS,
+            COMENTARIOS,
+            id_colaborador
+        ]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: ' actualizado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al actualizar :', error);
+        res.status(500).send({ message: 'Error en el servidor al actualizar' });
+    }
+});
 exports.actualizarColaborador = actualizarColaborador;
-const eliminarColaborador = (req, res) => {
-    colaboradores_schema_1.ColaboradoresSchema.deleteOne({ id_colaborador: req.params.id_colaborador })
-        .then(removeResult => {
-        res.send({ message: 'eliminado', removeResult });
-        res.end();
-    });
-};
+// Función para eliminar un usuario
+const eliminarColaborador = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_colaborador } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`DELETE FROM C##GITHUB.TBL_COLABORADORES WHERE id_colaborador = :id_colaborador`, [id_colaborador]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'eliminado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al eliminar:', error);
+        res.status(500).send({ message: 'Error en el servidor al eliminar' });
+    }
+});
 exports.eliminarColaborador = eliminarColaborador;

@@ -1,62 +1,130 @@
 import {Request, Response} from 'express';
-import { StarsSchema } from '../model/stars.schema';
+const oracledb = require('oracledb');
+import { connectToDB, closeDB } from '../utils/database';
 
 
-export const obtenerStar = (req: Request, res: Response) => {
-    StarsSchema.findOne({id_estrella: req.params.id_estrella}).then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error));
-}
 
+// Función para obtener un usuario por su ID
+export const obtenerStar = async (req: Request, res: Response) => {
+  const { id_estrella } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_STARS WHERE id_estrella = :id_estrella`, [id_estrella]);
+    await connection.close();
+
+    if (result.rows.length === 0) {
+      res.status(404).send({ message: ' no encontrado' });
+    } else {
+      res.send(result.rows[0]);
+    }
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor' });
+  }
+};
+
+// Función para obtener todos los usuarios
 export const obtenerStars = async (req: Request, res: Response) => {
-    StarsSchema.find().then(result=>{
-        res.send(result);
-        res.end();
-    })
-    .catch(error => console.error(error))
-}
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    const result = await connection.execute(`SELECT * FROM C##GITHUB.TBL_STARS ORDER BY id_estrella ASC`);
+    await connection.close();
 
-export const agregarStar = (req:Request, res:Response)=> {
-  const p = new StarsSchema(
-      {
-        
-          "id_estrella": req.body.id_estrella,
-          "id_usuario": req.body.id_usuario,
-          "id_repositorio": req.body.id_repositorio,
-          "fecha_estrella": req.body.fecha_estrella,
-        });
-        p.save().then(saveResponse=>{
-          res.send(saveResponse);
-          res.end();
-        }).catch(error=>{
-          res.send({message:'hubo un error al guardar', error});
-          res.end();
-        });
-}
+    res.send(result.rows);
+  } catch (error) {
+    console.error('Error al obtener :', error);
+    res.status(500).send({ message: 'Error en el servidor al obtener' });
+  }
+};
 
-export const actualizarStar = (req:Request, res:Response)=> {
-    StarsSchema.updateOne({id_estrella: req.params.id_estrella}, {
+// Función para agregar un nuevo usuario
+export const agregarStar = async (req: Request, res: Response) => {
+  const {ID_ESTRELLA,ID_USUARIO,ID_REPOSITORIO,FECHA_ESTRELLA} = req.body;
 
-      id_estrella: req.body.id_estrella,
-      id_usuario: req.body.id_usuario,
-      id_repositorio: req.body.id_repositorio,
-      fecha_estrella: req.body.fecha_estrella,
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
 
-  }).then(updateResponse=>{
-      res.send({message:'actualizado',updateResponse});
-      res.end();
-    }).catch(error=>{
-      res.send({message:'hubo un error al actualizar', error});
-      res.end();
-    });
-}
+      `INSERT INTO C##GITHUB.TBL_STARS 
+      (ID_ESTRELLA, ID_USUARIO, ID_REPOSITORIO, FECHA_ESTRELLA) 
+      VALUES 
+      (:ID_ESTRELLA, :ID_USUARIO, :ID_REPOSITORIO, TO_DATE(:FECHA_ESTRELLA, 'DD-MON-RR'))
+      `, 
+       [ID_ESTRELLA,ID_USUARIO,ID_REPOSITORIO,FECHA_ESTRELLA]
+      );
+    await connection.commit();
+    await connection.close();
 
-export const eliminarStar = (req:Request, res:Response)=> {
-    StarsSchema.deleteOne({id_estrella: req.params.id_estrella})
-  .then(removeResult=>{
-      res.send({message:'eliminado', removeResult});
-      res.end();
-  });
-}
+    res.status(201).send({ message: ' agregado exitosamente' });
+  } catch (error) {
+    console.error('Error al agregar:', error);
+    res.status(500).send({ message: 'Error en el servidor al agregar' });
+  }
+};
+
+
+// Función para actualizar un usuario
+export const actualizarStar = async (req: Request, res: Response) => {
+  const { id_estrella } = req.params;
+  const {
+         ID_USUARIO,
+         ID_REPOSITORIO,
+         FECHA_ESTRELLA
+  } = req.body;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(
+
+      `UPDATE C##GITHUB.TBL_STARS 
+      SET 
+          ID_USUARIO = :ID_USUARIO, 
+          ID_REPOSITORIO = :ID_REPOSITORIO, 
+          FECHA_ESTRELLA = TO_DATE(:FECHA_ESTRELLA, 'DD-MON-RR')
+      WHERE 
+          ID_ESTRELLA = :ID_ESTRELLA`, 
+           [
+            ID_USUARIO,
+            ID_REPOSITORIO,
+            FECHA_ESTRELLA,
+            id_estrella
+           ]
+      );
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: ' actualizado exitosamente' });
+  } catch (error) {
+    console.error('Error al actualizar :', error);
+    res.status(500).send({ message: 'Error en el servidor al actualizar' });
+  }
+};
+
+
+// Función para eliminar un usuario
+export const eliminarStar = async (req: Request, res: Response) => {
+  const { id_estrella } = req.params;
+
+  let connection;
+  try {
+    await connectToDB();
+    connection = await oracledb.getConnection();
+    await connection.execute(`DELETE FROM C##GITHUB.TBL_STARS WHERE id_estrella = :id_estrella`, [id_estrella]);
+    await connection.commit();
+    await connection.close();
+
+    res.send({ message: 'eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar:', error);
+    res.status(500).send({ message: 'Error en el servidor al eliminar' });
+  }
+};

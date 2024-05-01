@@ -10,61 +10,115 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eliminarTag = exports.actualizarTag = exports.agregarTag = exports.obtenerTags = exports.obtenerTag = void 0;
-const tag_schema_1 = require("../model/tag.schema");
-const obtenerTag = (req, res) => {
-    tag_schema_1.TagSchema.findOne({ id_tag: req.params.id_tag }).then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
-};
+const oracledb = require('oracledb');
+const database_1 = require("../utils/database");
+// Función para obtener un usuario por su ID
+const obtenerTag = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_tag } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_TAGS WHERE id_tag = :id_tag`, [id_tag]);
+        yield connection.close();
+        if (result.rows.length === 0) {
+            res.status(404).send({ message: ' no encontrado' });
+        }
+        else {
+            res.send(result.rows[0]);
+        }
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener ' });
+    }
+});
 exports.obtenerTag = obtenerTag;
+// Función para obtener todos los usuarios
 const obtenerTags = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    tag_schema_1.TagSchema.find().then(result => {
-        res.send(result);
-        res.end();
-    })
-        .catch(error => console.error(error));
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        const result = yield connection.execute(`SELECT * FROM C##GITHUB.TBL_TAGS ORDER BY ID_TAG ASC`);
+        yield connection.close();
+        res.send(result.rows);
+    }
+    catch (error) {
+        console.error('Error al obtener :', error);
+        res.status(500).send({ message: 'Error en el servidor al obtener' });
+    }
 });
 exports.obtenerTags = obtenerTags;
-const agregarTag = (req, res) => {
-    const p = new tag_schema_1.TagSchema({
-        "id_tag": req.body.id_tag,
-        "id_repositorio": req.body.id_repositorio,
-        "titulo": req.body.titulo,
-        "contenido": req.body.contenido,
-        "fecha_creacion": req.body.fecha_creacion
-    });
-    p.save().then(saveResponse => {
-        res.send(saveResponse);
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al guardar', error });
-        res.end();
-    });
-};
+// Función para agregar un nuevo usuario
+const agregarTag = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { ID_TAG, ID_REPOSITORIO, TITULO, CONTENIDO, FECHA_CREACION } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`INSERT INTO C##GITHUB.TBL_TAGS 
+      (ID_TAG, ID_REPOSITORIO, TITULO, CONTENIDO, FECHA_CREACION) 
+      VALUES 
+      (:ID_TAG, :ID_REPOSITORIO, :TITULO, :CONTENIDO, TO_DATE(:FECHA_CREACION, 'DD-MON-RR'))`, [ID_TAG, ID_REPOSITORIO, TITULO, CONTENIDO, FECHA_CREACION]);
+        yield connection.commit();
+        yield connection.close();
+        res.status(201).send({ message: ' agregado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al agregar:', error);
+        res.status(500).send({ message: 'Error en el servidor al agregar' });
+    }
+});
 exports.agregarTag = agregarTag;
-const actualizarTag = (req, res) => {
-    tag_schema_1.TagSchema.updateOne({ id_tag: req.params.id_tag }, {
-        id_tag: req.body.id_tag,
-        id_repositorio: req.body.id_repositorio,
-        titulo: req.body.titulo,
-        contenido: req.body.contenido,
-        fecha_creacion: req.body.fecha_creacion
-    }).then(updateResponse => {
-        res.send({ message: 'actualizado', updateResponse });
-        res.end();
-    }).catch(error => {
-        res.send({ message: 'hubo un error al actualizar', error });
-        res.end();
-    });
-};
+// Función para actualizar un usuario
+const actualizarTag = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_tag } = req.params;
+    const { ID_REPOSITORIO, TITULO, CONTENIDO, FECHA_CREACION } = req.body;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`UPDATE C##GITHUB.TBL_TAGS 
+      SET 
+          ID_REPOSITORIO = :ID_REPOSITORIO
+          TITULO = :TITULO, 
+          CONTENIDO = :CONTENIDO, 
+          FECHA_CREACION = TO_DATE(:FECHA_CREACION, 'DD-MON-RR')
+      WHERE 
+          id_tag = :id_tag;
+      `, [
+            ID_REPOSITORIO,
+            TITULO,
+            CONTENIDO,
+            FECHA_CREACION,
+            id_tag
+        ]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: ' actualizado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al actualizar :', error);
+        res.status(500).send({ message: 'Error en el servidor al actualizar' });
+    }
+});
 exports.actualizarTag = actualizarTag;
-const eliminarTag = (req, res) => {
-    tag_schema_1.TagSchema.deleteOne({ id_tag: req.params.id_tag })
-        .then(removeResult => {
-        res.send({ message: 'eliminado', removeResult });
-        res.end();
-    });
-};
+// Función para eliminar un usuario
+const eliminarTag = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_tag } = req.params;
+    let connection;
+    try {
+        yield (0, database_1.connectToDB)();
+        connection = yield oracledb.getConnection();
+        yield connection.execute(`DELETE FROM C##GITHUB.TBL_TAGS WHERE id_tag = :id_tag`, [id_tag]);
+        yield connection.commit();
+        yield connection.close();
+        res.send({ message: 'eliminado exitosamente' });
+    }
+    catch (error) {
+        console.error('Error al eliminar:', error);
+        res.status(500).send({ message: 'Error en el servidor al eliminar' });
+    }
+});
 exports.eliminarTag = eliminarTag;

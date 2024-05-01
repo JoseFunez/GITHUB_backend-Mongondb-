@@ -3,14 +3,14 @@ import {obtenerFile_modif, obtenerFile_modifs, agregarFile_modif, actualizarFile
 
 const router = express.Router();
 
-router.get('/:id_file_modif', obtenerFile_modif);
+router.get('/:id_modification', obtenerFile_modif);
 
 router.get('/', obtenerFile_modifs);
 
 router.post('/', agregarFile_modif);
 
-router.put('/:id_file_modif', actualizarFile_modif);
+router.put('/:id_modification', actualizarFile_modif);
 
-router.delete('/:id_file_modif', eliminarFile_modif);
+router.delete('/:id_modification', eliminarFile_modif);
 
 export default router;

@@ -9,7 +9,7 @@ router.get('/', obtenerMiembro_equipos);
 
 router.post('/', agregarMiembro_equipo);
 
-router.put('/:idmiembrot', actualizarMiembro_equipo);
+router.put('/:id_miembro', actualizarMiembro_equipo);
 
 router.delete('/:id_miembro', eliminarMiembro_equipo);
 
